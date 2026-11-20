@@ -185,6 +185,9 @@ SKILL_ALIASES: dict[str, tuple[str, ...]] = {
 }
 SKILLS: tuple[str, ...] = tuple(SKILL_ALIASES)
 
+# Нетехнические темы: полезны, но совпадение только по ним — слабый повод знакомиться.
+SOFT_SKILLS = frozenset({"Career", "Public Speaking"})
+
 _ALIAS_INDEX: dict[str, str] = {
     alias: canon for canon, aliases in SKILL_ALIASES.items() for alias in (canon.lower(), *aliases)
 }

@@ -5,60 +5,97 @@
 `utility(a, b)` и `utility(b, a)` считаются разными функциями. Взаимный балл
 пары собирается из обеих в `engine.py`.
 
-Каждая функция возвращает не только число, но и факты, за которые оно начислено.
-Из этих фактов строятся объяснения, поэтому объяснение не может сказать
-того, чего не посчитала модель.
+Полезность складывается из двух видов фактов:
+- **требования** (`require`): без них знакомство почти бессмысленно — не та роль
+  для вакансии, ментор не опытнее менти. Невыполненное требование умножает итог
+  на `REQUIREMENT_MISS`. Человек проваливается вниз, но не исчезает: если
+  подходящих нет, лучше показать ближайших, чем пустой список;
+- **критерии** (`add`): взвешенные компоненты, их веса для каждой цели дают 1.
+
+Каждый факт хранит, что именно совпало. Из фактов строятся объяснения, поэтому
+объяснение не может сказать того, чего не посчитала модель.
 """
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from kopir.models import Profile
-from kopir.taxonomy import COMPATIBLE, LEVEL_ORDER, TECH_ROLES, Goal, Level
+from kopir.taxonomy import COMPATIBLE, LEVEL_ORDER, SOFT_SKILLS, TECH_ROLES, Goal, Level
 
-# Значение компонента, когда сравнивать не с чем (например, нанимающий не указал уровень).
+# Значение критерия, когда сравнивать не с чем (например, нанимающий не указал уровень).
 NEUTRAL = 0.5
+# Множитель за каждое невыполненное требование.
+REQUIREMENT_MISS = 0.3
+# Вес мягкой темы относительно технической при покрытии тем.
+SOFT_SKILL_WEIGHT = 0.4
+# Минимальный разрыв в опыте, при котором менторство имеет смысл, и комфортный разрыв.
+MIN_MENTOR_GAP_YEARS = 1.5
+GOOD_MENTOR_GAP_YEARS = 3.0
 
 
 @dataclass(frozen=True)
 class Fact:
-    """Одна причина, по которой B полезен A. `value` — то, что совпало."""
+    """Одна причина полезности. `weight == 0` у требований: они влияют через множитель."""
 
     kind: str
     value: tuple[str, ...]
     score: float
     weight: float
 
+    @property
+    def is_requirement(self) -> bool:
+        return self.weight == 0.0
+
 
 @dataclass
 class Utility:
-    score: float = 0.0
     facts: list[Fact] = field(default_factory=list)
+    gate: float = 1.0
 
-    def add(self, kind: str, value: tuple[str, ...], score: float, weight: float) -> None:
-        self.score += score * weight
-        self.facts.append(Fact(kind, value, score, weight))
+    @property
+    def score(self) -> float:
+        return self.gate * sum(f.score * f.weight for f in self.facts)
+
+    def add(self, kind: str, value: Iterable[str], score: float, weight: float) -> None:
+        self.facts.append(Fact(kind, tuple(value), score, weight))
+
+    def require(self, kind: str, value: Iterable[str], ok: bool) -> None:
+        self.facts.append(Fact(kind, tuple(value), 1.0 if ok else 0.0, 0.0))
+        if not ok:
+            self.gate *= REQUIREMENT_MISS
 
 
-def _common(a: list[str], b: list[str]) -> tuple[str, ...]:
+def _common(a: Iterable[str], b: Iterable[str]) -> tuple[str, ...]:
+    """Пересечение с сохранением порядка `a`."""
     other = set(b)
-    return tuple(x for x in a if x in other)
+    return tuple(dict.fromkeys(x for x in a if x in other))
+
+
+def _skill_weight(skill: str) -> float:
+    return SOFT_SKILL_WEIGHT if skill in SOFT_SKILLS else 1.0
 
 
 def _coverage(required: list[str], have: list[str]) -> tuple[float, tuple[str, ...]]:
-    """Какая доля требований закрыта. Нет требований — нейтрально."""
+    """Взвешенная доля закрытых требований. Нет требований — нейтрально."""
     if not required:
         return NEUTRAL, ()
     hit = _common(required, have)
-    return len(hit) / len(required), hit
+    total = sum(_skill_weight(s) for s in required)
+    return sum(_skill_weight(s) for s in hit) / total, hit
 
 
 def _overlap(a: list[str], b: list[str]) -> tuple[float, tuple[str, ...]]:
-    """Коэффициент перекрытия |A∩B| / min(|A|,|B|): не наказывает за длинный стек."""
-    if not a or not b:
-        return NEUTRAL if not a else 0.0, ()
+    """|A∩B| / min(|A|,|B|): не наказывает за длинный список.
+
+    Если A пуст, у человека нет предпочтений — нейтрально. Если пуст только B,
+    сравнивать не с чем, совпадения нет.
+    """
+    if not a:
+        return NEUTRAL, ()
+    if not b:
+        return 0.0, ()
     hit = _common(a, b)
-    return len(hit) / min(len(a), len(b)), hit
+    return len(hit) / min(len(set(a)), len(set(b))), hit
 
 
 def _level_fit(wanted: Level | None, actual: Level) -> float:
@@ -68,14 +105,9 @@ def _level_fit(wanted: Level | None, actual: Level) -> float:
     return {0: 1.0, 1: 0.5}.get(diff, 0.0)
 
 
-def _experience_gap(mentor: Profile, mentee: Profile) -> float:
-    """Ментор должен быть заметно опытнее: разрыв от 3 лет — идеально."""
-    gap = mentor.years - mentee.years
-    if gap >= 3:
-        return 1.0
-    if gap >= 1.5:
-        return 0.6
-    return 0.0
+def _level_closeness(a: Level, b: Level) -> float:
+    diff = abs(LEVEL_ORDER[a] - LEVEL_ORDER[b])
+    return {0: 1.0, 1: 1.0, 2: 0.5}.get(diff, 0.2)
 
 
 def _wanted_domains(p: Profile) -> list[str]:
@@ -86,17 +118,25 @@ def _expertise(p: Profile) -> list[str]:
     return list(dict.fromkeys(p.stack + p.target.skills))
 
 
+def _mentoring(u: Utility, mentor: Profile, mentee: Profile) -> None:
+    """Общая часть для обеих сторон менторства."""
+    gap = mentor.years - mentee.years
+    u.require("experience_gap", (f"{gap:g}",), gap >= MIN_MENTOR_GAP_YEARS)
+    score, hit = _coverage(mentee.target.skills or mentee.stack, _expertise(mentor))
+    u.add("topics", hit, score, 0.60)
+    u.add("experience_gap", (f"{gap:g}",), 1.0 if gap >= GOOD_MENTOR_GAP_YEARS else 0.6, 0.20)
+
+
 def _find_job(a: Profile, b: Profile) -> Utility:
     """A ищет работу, B нанимает: подходит ли вакансия B под A."""
     u = Utility()
-    wanted_roles = a.target.roles or [a.role]
-    roles = _common(wanted_roles, b.target.roles)
-    u.add("role", roles, 1.0 if roles else 0.0, 0.35)
+    roles = _common(a.target.roles or [a.role], b.target.roles)
+    u.require("role", roles or b.target.roles, bool(roles))
     score, hit = _coverage(b.target.skills, a.stack)
-    u.add("stack", hit, score, 0.30)
-    u.add("level", (b.target.level or a.level,), _level_fit(b.target.level, a.level), 0.20)
+    u.add("stack", hit, score, 0.45)
+    u.add("level", [b.target.level or a.level], _level_fit(b.target.level, a.level), 0.30)
     score, hit = _overlap(_wanted_domains(a), b.target.domains)
-    u.add("domain", hit, score, 0.15)
+    u.add("domain", hit, score, 0.25)
     return u
 
 
@@ -104,21 +144,19 @@ def _hire(a: Profile, b: Profile) -> Utility:
     """A нанимает, B ищет работу: закрывает ли B вакансию A."""
     u = Utility()
     roles = _common([b.role, *b.target.roles], a.target.roles)
-    u.add("role", roles[:1], 1.0 if roles else 0.0, 0.30)
+    u.require("role", roles or [b.role], bool(roles))
     score, hit = _coverage(a.target.skills, b.stack)
-    u.add("stack", hit, score, 0.40)
-    u.add("level", (b.level,), _level_fit(a.target.level, b.level), 0.20)
+    u.add("stack", hit, score, 0.55)
+    u.add("level", [b.level], _level_fit(a.target.level, b.level), 0.30)
     score, hit = _overlap(a.target.domains, b.interests)
-    u.add("domain", hit, score, 0.10)
+    u.add("domain", hit, score, 0.15)
     return u
 
 
 def _find_mentor(a: Profile, b: Profile) -> Utility:
     """A ищет ментора, B готов менторить: разбирается ли B в том, что нужно A."""
     u = Utility()
-    score, hit = _coverage(a.target.skills or a.stack, _expertise(b))
-    u.add("topics", hit, score, 0.50)
-    u.add("experience_gap", (f"{b.years:g}",), _experience_gap(b, a), 0.30)
+    _mentoring(u, mentor=b, mentee=a)
     score, hit = _overlap(_wanted_domains(a), b.interests)
     u.add("domain", hit, score, 0.20)
     return u
@@ -127,26 +165,30 @@ def _find_mentor(a: Profile, b: Profile) -> Utility:
 def _be_mentor(a: Profile, b: Profile) -> Utility:
     """A готов менторить, B ищет ментора: может ли A помочь именно B."""
     u = Utility()
-    score, hit = _coverage(b.target.skills or b.stack, _expertise(a))
-    u.add("topics", hit, score, 0.50)
-    u.add("experience_gap", (f"{b.years:g}",), _experience_gap(a, b), 0.30)
+    _mentoring(u, mentor=a, mentee=b)
     score, hit = _overlap(a.interests, _wanted_domains(b))
     u.add("domain", hit, score, 0.20)
     return u
 
 
 def _find_cofounder(a: Profile, b: Profile) -> Utility:
-    """Оба ищут кофаундера: закрывает ли B нужную A роль и горят ли они одним делом."""
+    """Оба ищут кофаундера: нужна ли A роль B и горят ли они одним делом.
+
+    Если A назвал нужные роли, это требование. Если нет, ценим взаимодополнение
+    технаря и нетехнаря, но не требуем его.
+    """
     u = Utility()
+    domain_score, domain_hit = _overlap(_wanted_domains(a), _wanted_domains(b))
+    level = _level_closeness(a.level, b.level)
     if a.target.roles:
-        roles = _common([b.role], a.target.roles)
-        u.add("role", roles, 1.0 if roles else 0.0, 0.40)
+        u.require("role", [b.role], b.role in a.target.roles)
+        u.add("domain", domain_hit, domain_score, 0.70)
+        u.add("level", [b.level], level, 0.30)
     else:
         complementary = (a.role in TECH_ROLES) != (b.role in TECH_ROLES)
-        u.add("complement", (b.role,), 1.0 if complementary else 0.3, 0.40)
-    score, hit = _overlap(_wanted_domains(a), _wanted_domains(b))
-    u.add("domain", hit, score, 0.40)
-    u.add("different_role", (b.role,), 1.0 if b.role != a.role else 0.0, 0.20)
+        u.add("complement", [b.role], 1.0 if complementary else 0.0, 0.30)
+        u.add("domain", domain_hit, domain_score, 0.50)
+        u.add("level", [b.level], level, 0.20)
     return u
 
 
@@ -157,12 +199,11 @@ def _share_experience(a: Profile, b: Profile) -> Utility:
     u.add("stack", hit, score, 0.45)
     score, hit = _overlap(_wanted_domains(a), _wanted_domains(b))
     u.add("domain", hit, score, 0.35)
-    diff = abs(LEVEL_ORDER[a.level] - LEVEL_ORDER[b.level])
-    u.add("level", (b.level,), {0: 1.0, 1: 1.0, 2: 0.5}.get(diff, 0.2), 0.20)
+    u.add("level", [b.level], _level_closeness(a.level, b.level), 0.20)
     return u
 
 
-_BY_GOAL: dict[Goal, Callable[[Profile, Profile], Utility]] = {
+BY_GOAL: dict[Goal, Callable[[Profile, Profile], Utility]] = {
     Goal.FIND_JOB: _find_job,
     Goal.HIRE: _hire,
     Goal.FIND_MENTOR: _find_mentor,
@@ -173,10 +214,10 @@ _BY_GOAL: dict[Goal, Callable[[Profile, Profile], Utility]] = {
 
 
 def utility(a: Profile, b: Profile) -> Utility:
-    """Насколько B полезен A с учётом цели A. Несовместимые цели дают ноль."""
+    """Насколько B полезен A с учётом цели A. Несовместимые цели и сам A дают ноль."""
     compat = COMPATIBLE[a.goal].get(b.goal, 0.0)
     if compat == 0.0 or a.id == b.id:
-        return Utility()
-    u = _BY_GOAL[a.goal](a, b)
-    u.score *= compat
+        return Utility(gate=0.0)
+    u = BY_GOAL[a.goal](a, b)
+    u.gate *= compat
     return u
