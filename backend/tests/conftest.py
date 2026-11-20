@@ -26,4 +26,4 @@ def make(goal: Goal, role: str = "backend", level: Level = Level.MIDDLE, years: 
 
 @pytest.fixture(scope="session")
 def dataset() -> list[Profile]:
-    return generate(n=200, seed=42)
+    return generate(seed=42)

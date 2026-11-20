@@ -1,6 +1,6 @@
 from collections import Counter
 
-from kopir.data.generator import GOAL_SHARE, generate
+from kopir.data.generator import DEFAULT_SIZE, GOAL_SHARE, MIN_VACANCIES_PER_ROLE, generate
 from kopir.taxonomy import TECH_ROLES, Goal
 
 
@@ -9,17 +9,24 @@ def test_generation_is_deterministic():
 
 
 def test_size_quotas_and_unique_ids(dataset):
-    assert len(dataset) == 200
-    assert len({p.id for p in dataset}) == 200
+    assert len(dataset) == DEFAULT_SIZE
+    assert len({p.id for p in dataset}) == DEFAULT_SIZE
     counts = Counter(p.goal for p in dataset)
     for goal, share in GOAL_SHARE.items():
-        assert abs(counts[goal] - 200 * share) <= 1
+        assert abs(counts[goal] - DEFAULT_SIZE * share) <= 1
 
 
-def test_every_seeker_role_has_a_vacancy(dataset):
-    vacancies = {r for p in dataset if p.goal == Goal.HIRE for r in p.target.roles}
-    seeker_roles = {p.role for p in dataset if p.goal == Goal.FIND_JOB}
-    assert seeker_roles <= vacancies
+def test_every_seeker_role_has_enough_vacancies(dataset):
+    vacancies = Counter(r for p in dataset if p.goal == Goal.HIRE for r in p.target.roles)
+    for role in {p.role for p in dataset if p.goal == Goal.FIND_JOB}:
+        assert vacancies[role] >= MIN_VACANCIES_PER_ROLE, role
+
+
+def test_every_vacancy_matches_some_seeker_stack(dataset):
+    """Вакансии списаны со спроса зала: требования вакансии есть у кого-то из соискателей."""
+    seekers = [p for p in dataset if p.goal == Goal.FIND_JOB]
+    for hirer in (p for p in dataset if p.goal == Goal.HIRE):
+        assert any(set(hirer.target.skills) <= set(s.stack) for s in seekers), hirer.id
 
 
 def test_every_mentee_topic_is_covered_by_some_mentor(dataset):
