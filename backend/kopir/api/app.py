@@ -28,7 +28,7 @@ from kopir.explain import explain
 from kopir.hall import Hall
 from kopir.matching.engine import Match
 from kopir.models import Profile, new_profile_id
-from kopir.taxonomy import DOMAIN_LABELS, GOAL_LABELS, LEVEL_LABELS, ROLE_LABELS, SKILLS, Goal, Lang, Level
+from kopir.taxonomy import DOMAIN_LABELS, GOAL_LABELS, GOAL_STATUS, LEVEL_LABELS, ROLE_LABELS, SKILLS, Goal, Lang, Level
 
 
 def _candidate(p: Profile, lang: Lang) -> Candidate:
@@ -36,7 +36,7 @@ def _candidate(p: Profile, lang: Lang) -> Candidate:
         id=p.id,
         name=p.name,
         goal=p.goal,
-        goal_label=GOAL_LABELS[p.goal][lang],
+        goal_label=GOAL_STATUS[p.goal][lang],
         role_label=ROLE_LABELS[p.role][lang],
         level_label=LEVEL_LABELS[p.level][lang],
         years=p.years,

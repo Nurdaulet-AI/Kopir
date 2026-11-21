@@ -1,14 +1,16 @@
+import { ArrowLeft, ArrowLeftRight, Languages, LoaderCircle, ShieldCheck, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, LANGS, type Lang, type Options, type ProfileInput, type Recommendation } from "./api";
-import { LangSwitch } from "./components/LangSwitch";
+import { LangSwitch, ThemeSwitch, type Theme } from "./components/Controls";
 import { ProfileForm } from "./components/ProfileForm";
-import { ResultCard } from "./components/ResultCard";
+import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { format, STRINGS, type Strings } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
 
 const PAGE = 5;
 // Сервер отдаёт не больше 20 рекомендаций за запрос.
 const MAX_K = 20;
+const THEMES: Theme[] = ["light", "dark", "system"];
 
 // localStorage может быть недоступен (приватный режим): тогда просто не запоминаем.
 function load<T>(key: string, fallback: T): T {
@@ -28,9 +30,9 @@ function save(key: string, value: unknown): void {
   }
 }
 
-function initialLang(): Lang {
-  const stored = load<string>("kopir.lang", "ru");
-  return LANGS.includes(stored as Lang) ? (stored as Lang) : "ru";
+function loadChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  const stored = load<string>(key, fallback);
+  return allowed.includes(stored as T) ? (stored as T) : fallback;
 }
 
 function errorText(e: unknown, t: Strings): string {
@@ -45,11 +47,29 @@ interface Results {
   exhausted: boolean;
 }
 
+function BrandMark() {
+  return (
+    <svg className="brand__mark" viewBox="0 0 36 36" aria-hidden>
+      <defs>
+        <linearGradient id="brand-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--accent-from)" />
+          <stop offset="100%" stopColor="var(--accent-to)" />
+        </linearGradient>
+      </defs>
+      <rect width="36" height="36" rx="10" fill="url(#brand-gradient)" />
+      <path d="M8 23c4.2-8.7 15.8-8.7 20 0" stroke="var(--gold)" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M11.5 22.5v4.5M24.5 22.5v4.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function App() {
-  const [lang, setLang] = useState<Lang>(initialLang);
+  const [lang, setLang] = useState<Lang>(() => loadChoice("kopir.lang", LANGS, "ru"));
+  const [theme, setTheme] = useState<Theme>(() => loadChoice("kopir.theme", THEMES, "system"));
   const [options, setOptions] = useState<Options | null>(null);
   const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY_DRAFT, ...load<Partial<Draft>>("kopir.draft", {}) }));
   const [results, setResults] = useState<Results | null>(null);
+  const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = STRINGS[lang];
@@ -67,26 +87,36 @@ export default function App() {
     };
   }, [lang]);
 
+  useEffect(() => {
+    save("kopir.theme", theme);
+    const root = document.documentElement;
+    if (theme === "system") delete root.dataset.theme;
+    else root.dataset.theme = theme;
+  }, [theme]);
+
   useEffect(() => save("kopir.draft", draft), [draft]);
 
   const run = useCallback(
-    async (profile: ProfileInput, opts: { k?: number; exclude?: string[]; append?: boolean } = {}) => {
+    async (profile: ProfileInput, opts: { exclude?: string[]; append?: boolean } = {}) => {
       setBusy(true);
       setError(null);
+      if (!opts.append) {
+        setPending(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       try {
-        const k = opts.k ?? PAGE;
-        const res = await api.recommend({ profile, lang, k, exclude: opts.exclude ?? [] });
+        const res = await api.recommend({ profile, lang, k: PAGE, exclude: opts.exclude ?? [] });
         setResults((prev) => ({
           profile,
           items: opts.append && prev ? [...prev.items, ...res.recommendations] : res.recommendations,
           elapsedMs: res.elapsed_ms,
-          exhausted: res.recommendations.length < k,
+          exhausted: res.recommendations.length < PAGE,
         }));
-        if (!opts.append) window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (e) {
         setError(errorText(e, t));
       } finally {
         setBusy(false);
+        setPending(false);
       }
     },
     [lang, t],
@@ -118,26 +148,43 @@ export default function App() {
     }
   };
 
+  const showResults = pending || results !== null;
+
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <span className="brand__mark" aria-hidden />
-          <div>
+        <div className="topbar__inner">
+          <div className="brand">
+            <BrandMark />
             <span className="brand__name">Kópir</span>
-            <span className="brand__tagline">{t.tagline}</span>
+          </div>
+          <div className="topbar__controls">
+            <LangSwitch value={lang} onChange={changeLang} />
+            <ThemeSwitch value={theme} onChange={setTheme} t={t} />
           </div>
         </div>
-        <LangSwitch value={lang} onChange={changeLang} />
       </header>
 
-      <p className="note">{t.syntheticNote}</p>
+      <main className="container">
+        {!showResults && (
+          <section className="hero">
+            <h1>{t.tagline}</h1>
+            <p className="hero__subtitle">{t.heroSubtitle}</p>
+            <ul className="hero__features">
+              <li><ArrowLeftRight size={15} aria-hidden /> {t.featureMutual}</li>
+              <li><Languages size={15} aria-hidden /> RU · ҚАЗ · EN</li>
+              <li><Zap size={15} aria-hidden /> {t.featureFast}</li>
+            </ul>
+            <p className="hero__note"><ShieldCheck size={14} aria-hidden /> {t.syntheticNote}</p>
+          </section>
+        )}
 
-      <main>
-        {!options && !error && <p className="loading">…</p>}
-        {!options && error && <p className="error" role="alert">{error}</p>}
+        {!options && !error && (
+          <p className="loading"><LoaderCircle size={18} className="spin" aria-hidden /></p>
+        )}
+        {!options && error && <p className="alert alert--error" role="alert">{error}</p>}
 
-        {options && !results && (
+        {options && !showResults && (
           <ProfileForm
             draft={draft}
             onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
@@ -150,24 +197,34 @@ export default function App() {
           />
         )}
 
-        {options && results && (
-          <section className="results">
-            <button type="button" className="link-button" onClick={() => setResults(null)}>
-              {t.editProfile}
+        {options && showResults && (
+          <section className="results" aria-busy={pending}>
+            <button type="button" className="ghost-button ghost-button--back" onClick={() => setResults(null)}>
+              <ArrowLeft size={16} aria-hidden /> {t.editProfile}
             </button>
             <h1>{t.resultsTitle}</h1>
-            <p className="muted">{format(t.matchedIn, { ms: results.elapsedMs })}</p>
-            {results.items.map((rec) => (
-              <ResultCard key={rec.candidate.id} rec={rec} t={t} />
-            ))}
-            {error && <p className="error" role="alert">{error}</p>}
-            {results.exhausted ? (
-              <p className="muted">{t.noMore}</p>
+            <p className="results__subtitle">{t.resultsSubtitle}</p>
+            {results && !pending && (
+              <p className="results__meta">
+                <Zap size={14} aria-hidden /> {format(t.matchedIn, { ms: Math.max(1, Math.round(results.elapsedMs)) })}
+              </p>
+            )}
+            <div className="results__list">
+              {pending
+                ? Array.from({ length: PAGE }, (_, i) => <ResultSkeleton key={i} />)
+                : results?.items.map((rec, i) => (
+                    <ResultCard key={rec.candidate.id} rec={rec} t={t} index={i % PAGE} />
+                  ))}
+            </div>
+            {error && <p className="alert alert--error" role="alert">{error}</p>}
+            {results && !pending && (results.exhausted ? (
+              <p className="results__end">{t.noMore}</p>
             ) : (
-              <button type="button" className="secondary" onClick={showMore} disabled={busy}>
+              <button type="button" className="secondary-button" onClick={showMore} disabled={busy}>
+                {busy ? <LoaderCircle size={16} className="spin" aria-hidden /> : null}
                 {busy ? t.searching : t.showMore}
               </button>
-            )}
+            ))}
           </section>
         )}
       </main>

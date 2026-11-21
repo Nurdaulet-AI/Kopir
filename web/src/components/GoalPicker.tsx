@@ -1,41 +1,44 @@
+import { BriefcaseBusiness, Check, Compass, GraduationCap, MessagesSquare, Rocket, UserPlus, type LucideIcon } from "lucide-react";
 import type { Goal, Option } from "../api";
 
-const ICONS: Record<Goal, string> = {
-  find_job: "💼",
-  hire: "🧲",
-  find_mentor: "🧭",
-  be_mentor: "🎓",
-  find_cofounder: "🚀",
-  share_experience: "🔄",
+const ICONS: Record<Goal, LucideIcon> = {
+  find_job: BriefcaseBusiness,
+  hire: UserPlus,
+  find_mentor: Compass,
+  be_mentor: GraduationCap,
+  find_cofounder: Rocket,
+  share_experience: MessagesSquare,
 };
 
 interface Props {
   goals: Option[];
+  hints: Record<Goal, string>;
   value: Goal | null;
   onChange: (goal: Goal) => void;
-  title: string;
+  labelledBy: string;
 }
 
-export function GoalPicker({ goals, value, onChange, title }: Props) {
+export function GoalPicker({ goals, hints, value, onChange, labelledBy }: Props) {
   return (
-    <fieldset className="goals">
-      <legend className="section-title">{title}</legend>
-      <div className="goals__grid">
-        {goals.map((g) => (
-          <button
-            type="button"
-            key={g.value}
-            className="goal"
-            aria-pressed={value === g.value}
-            onClick={() => onChange(g.value as Goal)}
-          >
+    <div className="goals" role="group" aria-labelledby={labelledBy}>
+      {goals.map((g) => {
+        const goal = g.value as Goal;
+        const Icon = ICONS[goal];
+        return (
+          <button type="button" key={goal} className="goal" aria-pressed={value === goal} onClick={() => onChange(goal)}>
             <span className="goal__icon" aria-hidden>
-              {ICONS[g.value as Goal]}
+              <Icon size={20} strokeWidth={1.8} />
             </span>
-            <span>{g.label}</span>
+            <span className="goal__title">{g.label}</span>
+            <span className="goal__hint">{hints[goal]}</span>
+            {value === goal && (
+              <span className="goal__check" aria-hidden>
+                <Check size={14} strokeWidth={3} />
+              </span>
+            )}
           </button>
-        ))}
-      </div>
-    </fieldset>
+        );
+      })}
+    </div>
   );
 }

@@ -6,6 +6,13 @@
     <meta name="description" content="Kópir — взаимный AI-подбор знакомств для IT-мероприятий" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%2300a3bf'/><path d='M6 20c4-8 16-8 20 0' stroke='%23fec50c' stroke-width='3' fill='none' stroke-linecap='round'/></svg>" />
     <title>Kópir</title>
+    <script>
+      // Тема до первой отрисовки, чтобы страница не мигала другой темой.
+      try {
+        var theme = JSON.parse(localStorage.getItem("kopir.theme") || '"system"');
+        if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

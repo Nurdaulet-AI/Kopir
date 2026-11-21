@@ -106,13 +106,13 @@ def explain(me: Profile, match: Match, lang: Lang | None = None) -> Explanation:
         "years": years(other.years, lang),
         "my_role": ROLE_LABELS[me.role][lang],
     }
-    for_me = _sentence(p["for_me"][me.goal], base | {
-        "opening": _opening(match.for_me, lang),
-        "detail": _detail(match.for_me, me.goal, lang),
-    })
+    detail_me = _detail(match.for_me, me.goal, lang)
+    detail_them = _detail(match.for_them, other.goal, lang)
+    for_me = _sentence(p["for_me"][me.goal], base | {"opening": _opening(match.for_me, lang), "detail": detail_me})
+    # Вторая фраза не повторяет уточнение первой: то же совпадение уже названо и стоит в чипах.
     for_them = _sentence(p["for_them"][other.goal], base | {
         "opening": _opening(match.for_them, lang),
-        "detail": _detail(match.for_them, other.goal, lang),
+        "detail": "" if detail_them == detail_me else detail_them,
     })
 
     shared: dict[str, list[str]] = {}

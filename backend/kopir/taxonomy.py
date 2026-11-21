@@ -21,6 +21,16 @@ class Goal(StrEnum):
     SHARE_EXPERIENCE = "share_experience"
 
 
+# Цель другого участника на его карточке: состояние, а не призыв к действию.
+GOAL_STATUS: dict[Goal, dict[Lang, str]] = {
+    Goal.FIND_JOB: {"ru": "ищет работу", "kk": "жұмыс іздейді", "en": "looking for a job"},
+    Goal.HIRE: {"ru": "нанимает", "kk": "қызметкер іздейді", "en": "hiring"},
+    Goal.FIND_MENTOR: {"ru": "ищет ментора", "kk": "тәлімгер іздейді", "en": "looking for a mentor"},
+    Goal.BE_MENTOR: {"ru": "ментор", "kk": "тәлімгер", "en": "mentor"},
+    Goal.FIND_COFOUNDER: {"ru": "ищет кофаундера", "kk": "тең құрылтайшы іздейді", "en": "looking for a co-founder"},
+    Goal.SHARE_EXPERIENCE: {"ru": "обмен опытом", "kk": "тәжірибе алмасу", "en": "swapping experience"},
+}
+
 GOAL_LABELS: dict[Goal, dict[Lang, str]] = {
     Goal.FIND_JOB: {"ru": "Найти работу", "kk": "Жұмыс табу", "en": "Find a job"},
     Goal.HIRE: {"ru": "Нанять", "kk": "Қызметкер жалдау", "en": "Hire"},
@@ -54,11 +64,11 @@ class Level(StrEnum):
 LEVEL_ORDER: dict[Level, int] = {lvl: i for i, lvl in enumerate(Level)}
 
 LEVEL_LABELS: dict[Level, dict[Lang, str]] = {
-    Level.INTERN: {"ru": "Стажёр / студент", "kk": "Тағылымдамашы / студент", "en": "Intern / student"},
+    Level.INTERN: {"ru": "Стажёр", "kk": "Тағылымдамашы", "en": "Intern"},
     Level.JUNIOR: {"ru": "Junior", "kk": "Junior", "en": "Junior"},
     Level.MIDDLE: {"ru": "Middle", "kk": "Middle", "en": "Middle"},
     Level.SENIOR: {"ru": "Senior", "kk": "Senior", "en": "Senior"},
-    Level.LEAD: {"ru": "Lead / руководитель", "kk": "Lead / жетекші", "en": "Lead / head"},
+    Level.LEAD: {"ru": "Lead", "kk": "Lead", "en": "Lead"},
 }
 
 # Типичный опыт в годах — для генератора и проверки «ментор опытнее менти».

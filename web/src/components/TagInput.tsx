@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useId, useMemo, useState, type KeyboardEvent } from "react";
 
 interface Props {
@@ -57,7 +58,7 @@ export function TagInput({ value, onChange, suggestions, placeholder, labelledBy
           <span className="tag" key={tag}>
             {tag}
             <button type="button" aria-label={`× ${tag}`} onClick={() => onChange(value.filter((t) => t !== tag))}>
-              ×
+              <X size={12} strokeWidth={2.5} aria-hidden />
             </button>
           </span>
         ))}

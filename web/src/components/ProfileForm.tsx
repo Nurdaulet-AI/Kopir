@@ -1,4 +1,5 @@
-import type { FormEvent } from "react";
+import { ArrowRight, LoaderCircle, Plus, Sparkles, X } from "lucide-react";
+import { useId, type FormEvent, type ReactNode } from "react";
 import type { Level, Options } from "../api";
 import type { Strings } from "../i18n";
 import { EMPTY_OPENING, type Draft, type OpeningDraft } from "../profile";
@@ -18,33 +19,52 @@ interface Props {
   error: string | null;
 }
 
+function Section({ step, title, action, children }: { step: number; title: string; action?: ReactNode; children: ReactNode }) {
+  const titleId = useId();
+  return (
+    <section className="section" aria-labelledby={titleId}>
+      <header className="section__head">
+        <span className="section__step" aria-hidden>{step}</span>
+        <h2 id={titleId}>{title}</h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
 export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, busy, error }: Props) {
+  const goalTitleId = useId();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit();
   };
   const setOpening = (i: number, patch: Partial<OpeningDraft>) =>
     onChange({ openings: draft.openings.map((o, j) => (j === i ? { ...o, ...patch } : o)) });
+  const roleOptions = options.roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>);
 
   return (
     <form className="form" onSubmit={submit} noValidate>
-      <GoalPicker
-        goals={options.goals}
-        value={draft.goal}
-        onChange={(goal) => onChange({ goal })}
-        title={t.goalQuestion}
-      />
+      <section className="section" aria-labelledby={goalTitleId}>
+        <header className="section__head">
+          <span className="section__step" aria-hidden>1</span>
+          <h2 id={goalTitleId}>{t.goalQuestion}</h2>
+        </header>
+        <GoalPicker goals={options.goals} hints={t.goalHint} value={draft.goal}
+                    onChange={(goal) => onChange({ goal })} labelledBy={goalTitleId} />
+      </section>
 
       {draft.goal && (
         <>
-          <div className="form__example">
-            <button type="button" className="link-button" onClick={onExample}>
-              ✨ {t.fillExample}
-            </button>
-          </div>
-
-          <section className="card">
-            <h2 className="section-title">{t.aboutYou}</h2>
+          <Section
+            step={2}
+            title={t.aboutYou}
+            action={
+              <button type="button" className="ghost-button" onClick={onExample}>
+                <Sparkles size={16} aria-hidden /> {t.fillExample}
+              </button>
+            }
+          >
             <div className="grid">
               <Field label={t.name}>
                 {(_, id) => (
@@ -59,7 +79,7 @@ export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, 
                 {(_, id) => (
                   <select id={id} value={draft.role} onChange={(e) => onChange({ role: e.target.value })}>
                     <option value="" disabled>—</option>
-                    {options.roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    {roleOptions}
                   </select>
                 )}
               </Field>
@@ -71,8 +91,8 @@ export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, 
               </Field>
               <Field label={t.level} wide>
                 {(labelId) => (
-                  <ChipSelect options={options.levels} value={[draft.level]} single labelledBy={labelId}
-                              onChange={([level]) => onChange({ level: level as Level })} />
+                  <ChipSelect options={options.levels} value={[draft.level]} single variant="segmented"
+                              labelledBy={labelId} onChange={([level]) => onChange({ level: level as Level })} />
                 )}
               </Field>
               <Field label={t.stack} wide>
@@ -94,10 +114,9 @@ export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, 
                 )}
               </Field>
             </div>
-          </section>
+          </Section>
 
-          <section className="card">
-            <h2 className="section-title">{t.whoYouSeek}</h2>
+          <Section step={3} title={t.whoYouSeek}>
             <div className="grid">
               {draft.goal === "find_job" && (
                 <Field label={t.desiredRole}>
@@ -105,7 +124,7 @@ export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, 
                     <select id={id} value={draft.desiredRole || draft.role}
                             onChange={(e) => onChange({ desiredRole: e.target.value })}>
                       <option value="" disabled>—</option>
-                      {options.roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      {roleOptions}
                     </select>
                   )}
                 </Field>
@@ -141,40 +160,43 @@ export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, 
                   </Field>
                   <div className="field field--wide">
                     <span className="field__label">{t.openings}</span>
-                    {draft.openings.map((o, i) => (
-                      <div className="opening" key={i}>
-                        <select aria-label={t.role} value={o.role} onChange={(e) => setOpening(i, { role: e.target.value })}>
-                          <option value="" disabled>{t.role}</option>
-                          {options.roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                        </select>
-                        <select aria-label={t.level} value={o.level}
-                                onChange={(e) => setOpening(i, { level: e.target.value as Level })}>
-                          {options.levels.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-                        </select>
-                        <TagInput value={o.skills} onChange={(skills) => setOpening(i, { skills })}
-                                  suggestions={options.skills} placeholder={t.skillsPlaceholder} label={t.stack} />
-                        {draft.openings.length > 1 && (
-                          <button type="button" className="link-button"
-                                  onClick={() => onChange({ openings: draft.openings.filter((_, j) => j !== i) })}>
-                            {t.remove}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button type="button" className="link-button"
-                            onClick={() => onChange({ openings: [...draft.openings, EMPTY_OPENING] })}>
-                      {t.addOpening}
-                    </button>
+                    <div className="openings">
+                      {draft.openings.map((o, i) => (
+                        <div className="opening" key={i}>
+                          <select aria-label={t.role} value={o.role} onChange={(e) => setOpening(i, { role: e.target.value })}>
+                            <option value="" disabled>{t.role}</option>
+                            {roleOptions}
+                          </select>
+                          <select aria-label={t.level} value={o.level}
+                                  onChange={(e) => setOpening(i, { level: e.target.value as Level })}>
+                            {options.levels.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                          </select>
+                          {draft.openings.length > 1 && (
+                            <button type="button" className="icon-button" aria-label={t.remove} title={t.remove}
+                                    onClick={() => onChange({ openings: draft.openings.filter((_, j) => j !== i) })}>
+                              <X size={16} aria-hidden />
+                            </button>
+                          )}
+                          <TagInput value={o.skills} onChange={(skills) => setOpening(i, { skills })}
+                                    suggestions={options.skills} placeholder={t.skillsPlaceholder} label={t.stack} />
+                        </div>
+                      ))}
+                      <button type="button" className="ghost-button ghost-button--dashed"
+                              onClick={() => onChange({ openings: [...draft.openings, EMPTY_OPENING] })}>
+                        <Plus size={16} aria-hidden /> {t.addOpening}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
-
             </div>
-          </section>
+          </Section>
 
-          {error && <p className="error" role="alert">{error}</p>}
-          <button type="submit" className="primary" disabled={busy}>
+          {error && <p className="alert alert--error" role="alert">{error}</p>}
+          <button type="submit" className="primary-button" disabled={busy}>
+            {busy ? <LoaderCircle size={18} className="spin" aria-hidden /> : null}
             {busy ? t.searching : t.submit}
+            {!busy && <ArrowRight size={18} aria-hidden />}
           </button>
         </>
       )}

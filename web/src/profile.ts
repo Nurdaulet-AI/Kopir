@@ -3,7 +3,7 @@
 // а в API уходит только то, что относится к выбранной цели.
 
 import type { Goal, Lang, Level, ProfileInput, Target } from "./api";
-import type { Strings } from "./i18n";
+import type { TextKey } from "./i18n";
 
 export interface OpeningDraft {
   role: string;
@@ -88,7 +88,7 @@ export function toProfile(d: Draft, lang: Lang): ProfileInput {
 }
 
 /** Ключ текста ошибки или null, если анкету можно отправлять. */
-export function validate(d: Draft): keyof Strings | null {
+export function validate(d: Draft): TextKey | null {
   if (!d.name.trim() || !d.role) return "errorRequired";
   if (d.goal === "hire" && !d.openings.some((o) => o.role)) return "errorOpenings";
   return null;

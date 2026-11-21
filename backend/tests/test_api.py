@@ -50,6 +50,7 @@ def test_recommend_returns_explained_reciprocal_top5(client):
     assert body["lang"] == "kk" and len(body["recommendations"]) == 5
     for rec in body["recommendations"]:
         assert rec["candidate"]["goal"] == "hire"
+        assert rec["candidate"]["goal_label"] == "қызметкер іздейді"
         assert 0 <= rec["score"] <= 100
         e = rec["explanation"]
         assert e["label_you"] == "Сізге" and e["for_me"] and e["for_them"] and e["icebreaker"]

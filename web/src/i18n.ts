@@ -2,9 +2,25 @@
 // пропущенная в казахском или английском строка ломает сборку, а не экран.
 // Казахские строки стоит вычитать носителю языка.
 
-import type { Lang } from "./api";
+import type { Goal, Lang } from "./api";
 
 const ru = {
+  heroSubtitle: "Расскажите, зачем вы пришли, — Kópir найдёт 5 человек, которым вы тоже нужны.",
+  featureMutual: "Взаимный подбор",
+  featureFast: "Меньше секунды",
+  stepGoal: "Цель",
+  resultsSubtitle: "Каждому из них вы тоже полезны — объяснение с обеих сторон.",
+  themeLight: "Светлая тема",
+  themeDark: "Тёмная тема",
+  themeSystem: "Как в системе",
+  goalHint: {
+    find_job: "Покажем тех, кто нанимает под ваш стек",
+    hire: "Найдём кандидатов под ваши вакансии",
+    find_mentor: "Опытные люди, которые закроют ваши темы",
+    be_mentor: "Те, кому нужен именно ваш опыт",
+    find_cofounder: "Партнёры с дополняющими навыками",
+    share_experience: "Коллеги с общим стеком и задачами",
+  } as Record<Goal, string>,
   tagline: "Знакомства, выгодные обоим",
   syntheticNote: "Демо на синтетических данных: все анкеты вымышлены.",
   goalQuestion: "Зачем вы пришли?",
@@ -28,7 +44,7 @@ const ru = {
   cofounderRoles: "Кто нужен в кофаундеры",
   company: "Компания",
   openings: "Вакансии",
-  addOpening: "+ ещё вакансия",
+  addOpening: "Ещё вакансия",
   remove: "Убрать",
   skillsPlaceholder: "Начните вводить: Python, React…",
   submit: "Подобрать знакомства",
@@ -39,7 +55,7 @@ const ru = {
   weak: "слабое совпадение",
   showMore: "Показать ещё 5",
   noMore: "Больше подходящих людей в зале нет",
-  editProfile: "← Изменить анкету",
+  editProfile: "Изменить анкету",
   icebreaker: "Первая фраза",
   copy: "Копировать",
   copied: "Скопировано",
@@ -55,6 +71,22 @@ const ru = {
 type Strings = typeof ru;
 
 const kk: Strings = {
+  heroSubtitle: "Не үшін келгеніңізді айтыңыз — Kópir сізге де қажет 5 адамды табады.",
+  featureMutual: "Өзара сәйкестік",
+  featureFast: "Бір секундтан аз",
+  stepGoal: "Мақсат",
+  resultsSubtitle: "Олардың әрқайсысына сіз де пайдалысыз — түсіндірме екі жақтан.",
+  themeLight: "Ашық тақырып",
+  themeDark: "Қараңғы тақырып",
+  themeSystem: "Жүйелік",
+  goalHint: {
+    find_job: "Сіздің стегіңізге маман іздейтіндерді көрсетеміз",
+    hire: "Вакансияларыңызға үміткерлер табамыз",
+    find_mentor: "Қажетті тақырыптарды меңгерген тәжірибелі мамандар",
+    be_mentor: "Дәл сіздің тәжірибеңіз керек адамдар",
+    find_cofounder: "Дағдылары сізді толықтыратын серіктестер",
+    share_experience: "Стегі мен міндеттері ортақ әріптестер",
+  },
   tagline: "Екі жаққа да тиімді таныстықтар",
   syntheticNote: "Демо синтетикалық деректерде: барлық сауалнамалар ойдан шығарылған.",
   goalQuestion: "Не үшін келдіңіз?",
@@ -78,7 +110,7 @@ const kk: Strings = {
   cofounderRoles: "Тең құрылтайшы ретінде кім керек",
   company: "Компания",
   openings: "Вакансиялар",
-  addOpening: "+ тағы вакансия",
+  addOpening: "Тағы вакансия",
   remove: "Алып тастау",
   skillsPlaceholder: "Жаза бастаңыз: Python, React…",
   submit: "Таныстар табу",
@@ -89,7 +121,7 @@ const kk: Strings = {
   weak: "әлсіз сәйкестік",
   showMore: "Тағы 5 адам көрсету",
   noMore: "Залда басқа сай адамдар жоқ",
-  editProfile: "← Сауалнаманы өзгерту",
+  editProfile: "Сауалнаманы өзгерту",
   icebreaker: "Алғашқы сөз",
   copy: "Көшіру",
   copied: "Көшірілді",
@@ -103,6 +135,22 @@ const kk: Strings = {
 };
 
 const en: Strings = {
+  heroSubtitle: "Tell us why you're here — Kópir finds 5 people who need you too.",
+  featureMutual: "Mutual matching",
+  featureFast: "Under a second",
+  stepGoal: "Goal",
+  resultsSubtitle: "You're useful to each of them too — explained from both sides.",
+  themeLight: "Light theme",
+  themeDark: "Dark theme",
+  themeSystem: "System",
+  goalHint: {
+    find_job: "People hiring for your stack",
+    hire: "Candidates for your openings",
+    find_mentor: "Experienced people who cover your topics",
+    be_mentor: "People who need exactly your experience",
+    find_cofounder: "Partners with complementary skills",
+    share_experience: "Peers with a shared stack and problems",
+  },
   tagline: "Introductions that pay off for both sides",
   syntheticNote: "Demo on synthetic data: all profiles are fictional.",
   goalQuestion: "What brings you here?",
@@ -126,7 +174,7 @@ const en: Strings = {
   cofounderRoles: "Co-founder roles you need",
   company: "Company",
   openings: "Openings",
-  addOpening: "+ another opening",
+  addOpening: "Another opening",
   remove: "Remove",
   skillsPlaceholder: "Start typing: Python, React…",
   submit: "Find people to meet",
@@ -137,7 +185,7 @@ const en: Strings = {
   weak: "weak match",
   showMore: "Show 5 more",
   noMore: "No more good matches in the hall",
-  editProfile: "← Edit profile",
+  editProfile: "Edit profile",
   icebreaker: "Opening line",
   copy: "Copy",
   copied: "Copied",
@@ -152,6 +200,9 @@ const en: Strings = {
 
 export const STRINGS: Record<Lang, Strings> = { ru, kk, en };
 export type { Strings };
+
+/** Ключи, значение которых — строка (а не вложенный словарь вроде goalHint). */
+export type TextKey = { [K in keyof Strings]: Strings[K] extends string ? K : never }[keyof Strings];
 
 export function format(template: string, values: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? `{${key}}`));

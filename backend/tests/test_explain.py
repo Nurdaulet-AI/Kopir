@@ -103,3 +103,10 @@ def test_good_match_has_no_warnings():
     assert e.warnings == []
     assert e.shared == {"topics": ["Kafka"]}
     assert "Kafka" in e.for_me and "Kafka" in e.icebreaker
+
+
+def test_second_sentence_does_not_repeat_the_first_detail(explained):
+    for q, m, lang, e in explained:
+        detail = e.for_me.split(" — ", 1)[1] if " — " in e.for_me else None
+        if detail:
+            assert detail.rstrip(".") not in e.for_them, (q.id, lang, e.for_me, e.for_them)
