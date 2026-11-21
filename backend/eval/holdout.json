@@ -55,7 +55,7 @@
   {"id": "h13", "name": "Контроль 13", "lang": "kk", "role": "ml", "level": "intern", "years": 0.5,
    "stack": ["Python"], "interests": ["ai"], "goal": "find_mentor",
    "target": {"skills": ["PyTorch", "LLM", "Career"]},
-   "about": "Студентпін, ML-ге кіріп жатырмын. PyTorch пен LLM бойынша тәлімгер керек."},
+   "about": "Студентпін, ML саласын үйреніп жүрмін. PyTorch және LLM бойынша тәлімгер іздеймін."},
   {"id": "h14", "name": "Контроль 14", "lang": "ru", "role": "qa", "level": "junior", "years": 1,
    "stack": ["Selenium", "Java"], "interests": [], "goal": "find_mentor",
    "target": {"skills": ["Playwright", "Python"]},
@@ -89,7 +89,7 @@
   {"id": "h21", "name": "Контроль 21", "lang": "kk", "role": "product", "level": "middle", "years": 4,
    "stack": ["Product Management"], "interests": ["ecommerce"], "goal": "find_cofounder",
    "target": {"roles": ["backend", "mobile"], "domains": ["ecommerce"]},
-   "about": "E-commerce идеясы бар продакт-менеджермін. Техникалық серіктес іздеймін."},
+   "about": "Продакт-менеджермін, менде E-commerce идеясы бар. Техникалық тең құрылтайшы іздеймін."},
 
   {"id": "h22", "name": "Контроль 22", "lang": "ru", "role": "frontend", "level": "middle", "years": 3,
    "stack": ["React", "TypeScript"], "interests": ["ecommerce"], "goal": "share_experience",

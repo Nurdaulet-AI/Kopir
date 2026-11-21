@@ -1,45 +1,11 @@
-"""Тексты «о себе» для синтетических анкет на русском, казахском и английском.
-
-Это базовые шаблоны. Скрипт `scripts/rewrite_about.py` при доступной LLM
-переписывает их живым языком; без LLM анкеты остаются с этими текстами.
-"""
+"""Тексты «о себе» для синтетических анкет на русском, казахском и английском."""
 
 import random
 
+from kopir.i18n import join as _join
+from kopir.i18n import years as _years
 from kopir.models import Profile
 from kopir.taxonomy import DOMAIN_LABELS, LEVEL_LABELS, ROLE_LABELS, Goal
-
-
-def years_ru(n: float) -> str:
-    if n < 1:
-        return "меньше года"
-    if n != int(n):
-        return f"{n:g} года"
-    n = int(n)
-    if n % 10 == 1 and n % 100 != 11:
-        word = "год"
-    elif n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-        word = "года"
-    else:
-        word = "лет"
-    return f"{n} {word}"
-
-
-def years_kk(n: float) -> str:
-    return "бір жылдан аз" if n < 1 else f"{n:g} жыл"
-
-
-def years_en(n: float) -> str:
-    return "under a year" if n < 1 else f"{n:g} year{'s' if n != 1 else ''}"
-
-
-def _join(items: list[str], lang: str) -> str:
-    if not items:
-        return ""
-    if len(items) == 1:
-        return items[0]
-    conj = {"ru": "и", "kk": "және", "en": "and"}[lang]
-    return f"{', '.join(items[:-1])} {conj} {items[-1]}"
 
 
 # Шаблоны избегают конструкций, где название сферы или роли нужно склонять
@@ -52,7 +18,7 @@ TEMPLATES: dict[Goal, dict[str, list[str]]] = {
             "{role} ({level}), город {city}. Основной стек: {stack}. Хочу в продуктовую команду. Сферы: {domains}.",
         ],
         "kk": [
-            "Сәлем! Мамандығым — {role} ({level}), тәжірибем {years}. Негізгі стек: {stack}. Қызықты салалар: {domains}. Жаңа жұмыс іздеймін.",
+            "Сәлем! Мамандығым — {role} ({level}), тәжірибем {years}. Негізгі стек: {stack}. Қызығатын салаларым: {domains}. Жаңа жұмыс іздеймін.",
         ],
         "en": [
             "Hi! {role} ({level}), {years} of experience. Stack: {stack}. Interested in {domains}. Open to job offers.",
@@ -102,7 +68,7 @@ TEMPLATES: dict[Goal, dict[str, list[str]]] = {
             "Есть идея стартапа ({domains}), нужен партнёр. Моя роль — {role}, ищу: {t_roles}.",
         ],
         "kk": [
-            "{domains} саласында стартап бастағым келеді. Мамандығым — {role}. Серіктес-құрылтайшы іздеймін: {t_roles}.",
+            "{domains} саласында стартап бастағым келеді. Мамандығым — {role}. Тең құрылтайшы іздеймін: {t_roles}.",
         ],
         "en": [
             "Want to start a company in {domains}. My role: {role}. Looking for a co-founder: {t_roles}.",
@@ -114,10 +80,10 @@ TEMPLATES: dict[Goal, dict[str, list[str]]] = {
             "{role}, уровень {level}. Люблю обсуждать {topics} — давайте делиться опытом.",
         ],
         "kk": [
-            "Мамандығым — {role} ({stack}). {topics} және {domains} туралы тәжірибе алмасқым келеді.",
+            "Мамандығым — {role} ({stack}). Тәжірибе алмасқым келеді. Тақырыптар: {topics}. Салалар: {domains}.",
         ],
         "en": [
-            "{role} working with {stack}. Keen to swap experience on {topics} and {domains}.",
+            "{role} working with {stack}. Keen to swap experience. Topics: {topics}. Domains: {domains}.",
         ],
     },
 }
@@ -139,12 +105,11 @@ def _openings_text(p: Profile, lang: str) -> str:
 
 def about_text(p: Profile, rng: random.Random) -> str:
     lang = p.lang
-    years = {"ru": years_ru, "kk": years_kk, "en": years_en}[lang](p.years)
     t = p.target
     fields = {
         "role": ROLE_LABELS[p.role][lang],
         "level": LEVEL_LABELS[p.level][lang],
-        "years": years,
+        "years": _years(p.years, lang),
         "city": p.city,
         "stack": _join(p.stack[:3], lang),
         "domains": _domain_labels(p.interests or t.domains, lang),

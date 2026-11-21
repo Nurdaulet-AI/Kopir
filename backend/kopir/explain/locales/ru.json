@@ -1,0 +1,39 @@
+{
+  "label_you": "Вам",
+  "label_them": "Взаимно",
+  "for_me": {
+    "find_job": "{name} нанимает: {opening}{detail}.",
+    "hire": "{name} ({level}, {role}) подходит под вакансию «{opening}»{detail}.",
+    "find_mentor": "{name} ({role}, опыт — {years}) может помочь{detail}.",
+    "be_mentor": "{name} ({level}, {role}) хочет расти там, где вы сильны{detail}.",
+    "find_cofounder": "{name} ({role}) тоже ищет кофаундера{detail}.",
+    "share_experience": "{name} ({role}) говорит с вами на одном техническом языке{detail}."
+  },
+  "for_them": {
+    "find_job": "Ищет как раз такую работу: «{opening}»{detail}.",
+    "hire": "Вы подходите под вакансию «{opening}»{detail}.",
+    "find_mentor": "Ищет ментора, и вы можете помочь{detail}.",
+    "be_mentor": "Хочет менторить как раз по вашему запросу{detail}.",
+    "find_cofounder": "Ваша роль — как раз та, что нужна: {my_role}.",
+    "share_experience": "Тоже хочет обменяться опытом{detail}."
+  },
+  "detail": {
+    "stack": " — общий стек: {items}",
+    "topics": " — темы: {items}",
+    "domain": " — общая сфера: {items}"
+  },
+  "warning": {
+    "role": "роль не совпадает с запросом",
+    "experience_gap": "опыт почти как у вас",
+    "topic_covered": "нужные темы не закрыты",
+    "common_craft": "нет общего стека"
+  },
+  "icebreaker": {
+    "find_job": "Здравствуйте! Меня заинтересовала вакансия «{opening}». Расскажете о команде?",
+    "hire": "Привет! У нас открыта вакансия «{opening}» — давай познакомимся?",
+    "find_mentor": "Здравствуйте! Можно задать пару вопросов про {item}? Хочу в этом вырасти.",
+    "be_mentor": "Привет! Вижу, тебе интересно {item} — могу поделиться опытом.",
+    "find_cofounder": "Привет! Тоже думаю о стартапе ({item}). Обсудим идеи?",
+    "share_experience": "Привет! Мы оба работаем с {item} — как это устроено у вас?"
+  }
+}

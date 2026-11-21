@@ -25,7 +25,7 @@ GOAL_LABELS: dict[Goal, dict[Lang, str]] = {
     Goal.HIRE: {"ru": "Нанять", "kk": "Қызметкер жалдау", "en": "Hire"},
     Goal.FIND_MENTOR: {"ru": "Найти ментора", "kk": "Тәлімгер табу", "en": "Find a mentor"},
     Goal.BE_MENTOR: {"ru": "Стать ментором", "kk": "Тәлімгер болу", "en": "Become a mentor"},
-    Goal.FIND_COFOUNDER: {"ru": "Найти кофаундера", "kk": "Серіктес-құрылтайшы табу", "en": "Find a co-founder"},
+    Goal.FIND_COFOUNDER: {"ru": "Найти кофаундера", "kk": "Тең құрылтайшы табу", "en": "Find a co-founder"},
     Goal.SHARE_EXPERIENCE: {"ru": "Обмен опытом", "kk": "Тәжірибе алмасу", "en": "Share experience"},
 }
 

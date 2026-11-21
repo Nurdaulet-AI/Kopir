@@ -1,0 +1,39 @@
+{
+  "label_you": "For you",
+  "label_them": "In return",
+  "for_me": {
+    "find_job": "{name} is hiring: {opening}{detail}.",
+    "hire": "{name} ({level}, {role}) fits your opening “{opening}”{detail}.",
+    "find_mentor": "{name} ({role}, {years} of experience) can help{detail}.",
+    "be_mentor": "{name} ({level}, {role}) wants to grow where you are strong{detail}.",
+    "find_cofounder": "{name} ({role}) is also looking for a co-founder{detail}.",
+    "share_experience": "{name} ({role}) speaks your technical language{detail}."
+  },
+  "for_them": {
+    "find_job": "Looking for exactly this role: “{opening}”{detail}.",
+    "hire": "You fit the opening “{opening}”{detail}.",
+    "find_mentor": "Looking for a mentor, and you can help{detail}.",
+    "be_mentor": "Wants to mentor exactly on what you asked for{detail}.",
+    "find_cofounder": "Your role is exactly what they need: {my_role}.",
+    "share_experience": "Also wants to swap experience{detail}."
+  },
+  "detail": {
+    "stack": " — shared stack: {items}",
+    "topics": " — topics: {items}",
+    "domain": " — shared domain: {items}"
+  },
+  "warning": {
+    "role": "role does not match the request",
+    "experience_gap": "similar experience to yours",
+    "topic_covered": "requested topics not covered",
+    "common_craft": "no shared stack"
+  },
+  "icebreaker": {
+    "find_job": "Hi! I'm interested in your “{opening}” opening. Could you tell me about the team?",
+    "hire": "Hi! We have an open “{opening}” position — shall we meet?",
+    "find_mentor": "Hi! Could I ask you a couple of questions about {item}? I want to grow in it.",
+    "be_mentor": "Hi! I see you're into {item} — happy to share my experience.",
+    "find_cofounder": "Hi! I'm also thinking about a startup ({item}). Shall we discuss ideas?",
+    "share_experience": "Hi! We both work with {item} — how is it set up on your side?"
+  }
+}
