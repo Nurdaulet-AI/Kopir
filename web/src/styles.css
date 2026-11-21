@@ -463,6 +463,11 @@ textarea { resize: vertical; line-height: 1.5; }
   .segmented--nav span { display: none; }
   .kpi__value { font-size: 1.5rem; }
 }
+/* Узкие телефоны: переключатели — второй строкой под логотипом, без горизонтальной прокрутки. */
+@media (max-width: 520px) {
+  .topbar__inner { flex-wrap: wrap; row-gap: 10px; }
+  .topbar__controls { width: 100%; justify-content: space-between; }
+}
 
 /* --- скелетоны и анимации --- */
 .result--skeleton { animation: none; }
