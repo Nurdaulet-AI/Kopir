@@ -1,8 +1,8 @@
-import { Check, Clock, GraduationCap, UsersRound } from "lucide-react";
+import { Check, Clock, GraduationCap, Radio, UsersRound } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { IntroView, Squad } from "../api";
 import type { Strings } from "../i18n";
-import { hue, initials } from "./ink";
+import { beaconInk, hue, initials } from "./ink";
 
 interface Props {
   squad: Squad;
@@ -10,13 +10,15 @@ interface Props {
   intros: IntroView[];
   busy: boolean;
   onInvite: () => void;
+  onOpenBeacon: (intro: IntroView) => void;
 }
 
 /** Мини-группа над подборкой: команда, где каждый полезен каждому, или круг ментора. */
-export function SquadCard({ squad, t, intros, busy, onInvite }: Props) {
+export function SquadCard({ squad, t, intros, busy, onInvite, onOpenBeacon }: Props) {
   const circle = squad.kind === "circle";
   const status = (id: string) => intros.find((i) => i.other.id === id && i.status !== "declined")?.status;
   const invited = squad.members.every((m) => status(m.id));
+  const groupIntro = intros.find((i) => i.status === "accepted" && i.beacon && squad.members.some((m) => m.id === i.other.id));
   const common = [...squad.skills, ...squad.domains];
   return (
     <section className="squad">
@@ -49,8 +51,13 @@ export function SquadCard({ squad, t, intros, busy, onInvite }: Props) {
             {t.groupCommon}: {common.map((c) => <span className="pill" key={c}>{c}</span>)}
           </span>
         )}
-        {invited ? (
-          <span className="meet__status meet__status--ok"><Check size={15} aria-hidden /> {t.groupInvited}</span>
+        {groupIntro?.beacon ? (
+          <button type="button" className="meet__button meet__button--beacon" onClick={() => onOpenBeacon(groupIntro)}
+                  style={{ "--beacon": groupIntro.beacon.color, "--beacon-ink": beaconInk(groupIntro.beacon.color) } as CSSProperties}>
+            <Radio size={16} aria-hidden /> {t.groupBeacon} · {groupIntro.beacon.code} · {groupIntro.beacon.time}
+          </button>
+        ) : invited ? (
+          <span className="meet__status"><Clock size={15} aria-hidden /> {t.requestSent}</span>
         ) : (
           <button type="button" className="meet__button" onClick={onInvite} disabled={busy}>
             <UsersRound size={16} aria-hidden /> {t.inviteAll}

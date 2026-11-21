@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftRight, BellRing, Check, Handshake, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, BellRing, CalendarClock, Check, Handshake, Radio, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
@@ -20,6 +20,7 @@ import { OrganizerDashboard } from "./components/OrganizerDashboard";
 import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { SquadCard } from "./components/SquadCard";
+import { beaconInk } from "./components/ink";
 import { format, STRINGS, type Strings, type TextKey } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
 import { announceReady, displayName, langOf, readLaunch } from "./telegram";
@@ -110,6 +111,8 @@ export default function App() {
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [squad, setSquad] = useState<Squad | null>(null);
   const joining = useRef<Promise<string> | null>(null);
+  const seen = useRef(new Map<string, string>());
+  const [agreed, setAgreed] = useState<string | null>(null);
   const t = STRINGS[lang];
 
   const changeView = (next: View) => {
@@ -151,7 +154,17 @@ export default function App() {
   useEffect(() => {
     if (!profileId) return;
     let cancelled = false;
-    const tick = () => api.intros(profileId, lang).then((list) => !cancelled && setIntros(list), () => undefined);
+    const tick = () => api.intros(profileId, lang).then((list) => {
+      if (cancelled) return;
+      // Ответ пришёл: показываем маячок один раз — там, где согласие получено только что.
+      const fresh = list.find((i) => i.status === "accepted" && seen.current.get(i.id) === "pending");
+      list.forEach((i) => seen.current.set(i.id, i.status));
+      setIntros(list);
+      if (fresh) {
+        setAgreed(format(STRINGS[lang].agreed, { name: fresh.other.name }));
+        setBeacon(fresh);
+      }
+    }, () => undefined);
     void tick();
     const timer = window.setInterval(tick, 4000);
     return () => {
@@ -160,8 +173,10 @@ export default function App() {
     };
   }, [profileId, lang]);
 
-  const upsertIntro = (intro: IntroView) =>
+  const upsertIntro = (intro: IntroView) => {
+    if (!seen.current.has(intro.id)) seen.current.set(intro.id, intro.status);
     setIntros((list) => [intro, ...list.filter((i) => i.id !== intro.id)]);
+  };
 
   /** Анкета попадает в зал один раз — при первом запросе на знакомство. */
   const ensureJoined = (profile: ProfileInput): Promise<string> => {
@@ -179,7 +194,7 @@ export default function App() {
       const me = await ensureJoined(results.profile);
       const intro = await api.intro(me, rec.candidate.id, lang);
       upsertIntro(intro);
-      if (intro.status === "accepted") setBeacon(intro);
+      if (intro.status === "accepted") setBeacon(intro); // встречный запрос: согласие уже есть
     }, lang);
   };
 
@@ -188,7 +203,8 @@ export default function App() {
     if (!results || !squad) return;
     void guarded(async () => {
       const me = await ensureJoined(results.profile);
-      for (const m of squad.members) upsertIntro(await api.intro(me, m.id, lang));
+      const group = `g${Date.now()}`;
+      for (const m of squad.members) upsertIntro(await api.intro(me, m.id, lang, group));
     }, lang);
   };
 
@@ -251,6 +267,8 @@ export default function App() {
     // Новая анкета — новое место в зале: прежние запросы относятся к старой версии.
     setProfileId(null);
     setIntros([]);
+    setAgreed(null);
+    seen.current.clear();
     joining.current = null;
     setPending(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -381,6 +399,30 @@ export default function App() {
                 <Sparkles size={15} aria-hidden /> {feedbackNotice(results.lastFeedback, t)}
               </p>
             )}
+            {agreed && !pending && (
+              <p className="notice" role="status"><Check size={15} aria-hidden /> {agreed}</p>
+            )}
+            {intros.some((i) => i.status === "accepted" && i.beacon) && (
+              <section className="meetings">
+                <h2><CalendarClock size={17} aria-hidden /> {t.myMeetings}</h2>
+                <ul>
+                  {Array.from(new Map(intros.filter((i) => i.status === "accepted" && i.beacon)
+                    .sort((a, b) => a.beacon!.time.localeCompare(b.beacon!.time))
+                    .map((i) => [i.beacon!.code, i])).values()).map((i) => (
+                    <li key={i.id}>
+                      <span className="meetings__time">{i.beacon!.time}</span>
+                      <span className="meetings__who">
+                        {intros.filter((x) => x.beacon?.code === i.beacon!.code).map((x) => x.other.name).join(", ")}
+                      </span>
+                      <button type="button" className="meet__button meet__button--beacon" onClick={() => setBeacon(i)}
+                              style={{ ["--beacon" as string]: i.beacon!.color, ["--beacon-ink" as string]: beaconInk(i.beacon!.color) }}>
+                        <Radio size={15} aria-hidden /> {format(t.zone, { n: i.beacon!.zone })} · {i.beacon!.code}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {intros.filter((i) => i.direction === "incoming" && i.status === "pending").map((i) => (
               <div className="incoming" key={i.id} role="status">
                 <BellRing size={18} aria-hidden />
@@ -401,7 +443,7 @@ export default function App() {
                 ))}
               </div>
             )}
-            {squad && !pending && <SquadCard squad={squad} t={t} intros={intros} busy={busy} onInvite={inviteSquad} />}
+            {squad && !pending && <SquadCard squad={squad} t={t} intros={intros} busy={busy} onInvite={inviteSquad} onOpenBeacon={setBeacon} />}
             <div className="results__list">
               {pending
                 ? Array.from({ length: PAGE }, (_, i) => <ResultSkeleton key={i} />)

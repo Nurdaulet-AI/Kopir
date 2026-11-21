@@ -14,14 +14,14 @@ export function Beacon({ intro, t, onClose }: { intro: IntroView; t: Strings; on
   }, [onClose]);
 
   if (!intro.beacon) return null;
-  const { color, code, zone } = intro.beacon;
+  const { color, code, zone, time } = intro.beacon;
   const telegram = intro.contact?.telegram;
   return (
     <div className="beacon" style={{ ["--beacon" as string]: color, ["--beacon-ink" as string]: beaconInk(color) }} role="dialog" aria-modal aria-label={t.openBeacon}>
       <button type="button" className="beacon__close" onClick={onClose} aria-label={t.close}>
         <X size={22} aria-hidden />
       </button>
-      <p className="beacon__zone"><MapPin size={20} aria-hidden /> {format(t.zone, { n: zone })}</p>
+      <p className="beacon__zone"><MapPin size={20} aria-hidden /> {format(t.zone, { n: zone })} · {time}</p>
       <p className="beacon__code">{code}</p>
       <p className="beacon__name">{intro.other.name}</p>
       <p className="beacon__hint">{t.beaconHint}</p>

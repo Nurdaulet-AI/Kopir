@@ -31,9 +31,28 @@ class TestDoubleOptIn:
         assert second.id == first.id and second.status == "accepted"
 
     def test_beacons_are_unique(self):
-        intros = Introductions()
+        intros = Introductions(sim_delay=0)
         beacons = {intros.request("x", f"p{i}", auto_accept=True).beacon for i in range(30)}
         assert len({(b.color, b.code) for b in beacons}) == 30
+
+    def test_demo_participant_answers_after_delay_not_instantly(self):
+        intros = Introductions(sim_delay=4)
+        intro = intros.request("me", "p1", auto_accept=True, now=100.0)
+        assert intro.status == "pending" and intro.beacon is None  # контактов ещё нет
+        assert intros.of("me", now=103.0)[0].status == "pending"
+        assert intros.of("me", now=104.5)[0].status == "accepted"
+
+    def test_meeting_slots_never_double_book_a_person(self):
+        intros = Introductions(sim_delay=0)
+        times = [intros.request("me", f"p{i}", auto_accept=True).beacon.time for i in range(4)]
+        assert times == ["18:00", "18:15", "18:30", "18:45"]
+        other = intros.request("q", "p0", auto_accept=True).beacon.time  # p0 занят в 18:00
+        assert other == "18:15"
+
+    def test_group_shares_one_beacon_zone_and_time(self):
+        intros = Introductions(sim_delay=0)
+        group = [intros.request("me", f"p{i}", auto_accept=True, group="g1") for i in range(3)]
+        assert len({(i.beacon.code, i.beacon.zone, i.beacon.time) for i in group}) == 1
 
 
 def test_schedule_has_no_double_booking_or_repeats(dataset):
@@ -77,9 +96,15 @@ class TestApi:
 
     def test_demo_participant_accepts_and_reveals_contact(self, client):
         me = self._join(client)
+        client.app.state.hall.introductions.sim_delay = 0
         view = client.post("/api/intros", json={"from_id": me, "to_id": "p050"}).json()
         assert view["status"] == "accepted" and view["simulated"] and view["beacon"]["code"]
-        assert view["contact"]["telegram"]
+        assert view["beacon"]["time"] == "18:00" and view["contact"]["telegram"]
+
+    def test_contact_hidden_until_demo_participant_answers(self, client):
+        me = self._join(client)
+        view = client.post("/api/intros", json={"from_id": me, "to_id": "p051"}).json()
+        assert view["status"] == "pending" and view["contact"] is None and view["beacon"] is None
 
     def test_live_people_need_both_yes(self, client):
         a = self._join(client)

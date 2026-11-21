@@ -160,7 +160,7 @@ export function ResultCard({ rec, t, index, onMet, onNotFit, busy, intro, onWant
           <>
             <button type="button" className="meet__button meet__button--beacon" onClick={onOpenBeacon}
                     style={{ ["--beacon" as string]: intro.beacon?.color, ["--beacon-ink" as string]: beaconInk(intro.beacon?.color) }}>
-              <Radio size={16} aria-hidden /> {t.openBeacon} · {intro.beacon?.code}
+              <Radio size={16} aria-hidden /> {t.openBeacon} · {intro.beacon?.code} · {intro.beacon?.time}
             </button>
             <span className="meet__status meet__status--ok">
               <Check size={15} aria-hidden /> {t.matched}{intro.simulated ? ` (${t.simulatedNote})` : ""}

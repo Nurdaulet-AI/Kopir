@@ -31,6 +31,7 @@ class Beacon:
     color: str
     code: str
     zone: int
+    time: str  # слот встречи 1:1 («18:15»): выдаётся автоматически после согласия обоих
 
 
 @dataclass
@@ -40,33 +41,73 @@ class Intro:
     to_id: str
     status: Status = "pending"
     simulated: bool = False
+    group: str | None = None  # общий id приглашения группы: одна зона, один код, одно время
     beacon: Beacon | None = None
     created: float = field(default_factory=time.time)
+    accept_at: float | None = None  # когда вымышленный участник «ответит»
+
+
+START_MIN = 18 * 60
+SLOT_MIN = 15
+SIM_DELAY_S = 4.0  # вымышленный участник «думает» несколько секунд — видно, что согласие двустороннее
 
 
 class Introductions:
-    """Запросы на знакомство в памяти сервера (на время мероприятия)."""
+    """Запросы на знакомство в памяти сервера (на время мероприятия).
 
-    def __init__(self) -> None:
+    Записаться на встречу 1:1 = получить согласие второй стороны: тогда паре
+    выдаётся маячок и ближайший слот, свободный у обоих (без двойных встреч).
+    """
+
+    def __init__(self, sim_delay: float = SIM_DELAY_S) -> None:
+        self.sim_delay = sim_delay
         self._lock = threading.Lock()
         self._intros: dict[str, Intro] = {}
         self._ids = itertools.count(1)
         self._beacons = itertools.count(0)
+        self._busy: dict[str, set[int]] = {}  # занятые слоты каждого участника
+        self._groups: dict[str, Beacon] = {}
 
-    def _beacon(self) -> Beacon:
+    def _slot(self, people: set[str]) -> int:
+        taken = set().union(*(self._busy.get(p, set()) for p in people))
+        slot = next(i for i in itertools.count() if i not in taken)
+        for p in people:
+            self._busy.setdefault(p, set()).add(slot)
+        return slot
+
+    def _new_beacon(self, people: set[str]) -> Beacon:
         n = next(self._beacons)
         letter = CODE_LETTERS[n % len(CODE_LETTERS)]
+        minutes = START_MIN + SLOT_MIN * self._slot(people)
         return Beacon(color=BEACON_COLORS[n % len(BEACON_COLORS)], code=f"{letter}{n // len(CODE_LETTERS) + 1}",
-                      zone=n % ZONES + 1)
+                      zone=n % ZONES + 1, time=f"{minutes // 60:02d}:{minutes % 60:02d}")
 
     def _accept(self, intro: Intro) -> None:
         intro.status = "accepted"
-        intro.beacon = intro.beacon or self._beacon()
+        if intro.beacon is not None:
+            return
+        if intro.group is None:
+            intro.beacon = self._new_beacon({intro.from_id, intro.to_id})
+            return
+        # Группа встречается вместе: один маячок и одно время на всех участников приглашения.
+        if intro.group not in self._groups:
+            people = {i.from_id for i in self._intros.values() if i.group == intro.group}
+            people |= {i.to_id for i in self._intros.values() if i.group == intro.group}
+            self._groups[intro.group] = self._new_beacon(people | {intro.from_id, intro.to_id})
+        intro.beacon = self._groups[intro.group]
 
-    def request(self, from_id: str, to_id: str, auto_accept: bool) -> Intro:
+    def _settle(self, now: float) -> None:
+        for intro in self._intros.values():
+            if intro.status == "pending" and intro.accept_at is not None and now >= intro.accept_at:
+                self._accept(intro)
+
+    def request(self, from_id: str, to_id: str, auto_accept: bool, group: str | None = None,
+                now: float | None = None) -> Intro:
         if from_id == to_id:
             raise ValueError("нельзя познакомиться с самим собой")
+        now = time.time() if now is None else now
         with self._lock:
+            self._settle(now)
             for intro in self._intros.values():
                 if (intro.from_id, intro.to_id) == (from_id, to_id):
                     return intro  # повторный запрос — тот же
@@ -75,11 +116,12 @@ class Introductions:
             if reverse is not None:  # встречный интерес — это и есть двойное согласие
                 self._accept(reverse)
                 return reverse
-            intro = Intro(id=f"i{next(self._ids)}", from_id=from_id, to_id=to_id)
+            intro = Intro(id=f"i{next(self._ids)}", from_id=from_id, to_id=to_id, group=group)
+            self._intros[intro.id] = intro
             if auto_accept:
                 intro.simulated = True
-                self._accept(intro)
-            self._intros[intro.id] = intro
+                intro.accept_at = now + self.sim_delay
+                self._settle(now)
             return intro
 
     def respond(self, intro_id: str, profile_id: str, accept: bool) -> Intro:
@@ -94,8 +136,9 @@ class Introductions:
                     intro.status = "declined"
             return intro
 
-    def of(self, profile_id: str) -> list[Intro]:
+    def of(self, profile_id: str, now: float | None = None) -> list[Intro]:
         with self._lock:
+            self._settle(time.time() if now is None else now)
             return [i for i in self._intros.values() if profile_id in (i.from_id, i.to_id)]
 
 

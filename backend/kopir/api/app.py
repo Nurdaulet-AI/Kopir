@@ -7,6 +7,7 @@
 """
 
 import os
+import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -70,6 +71,7 @@ def _recommendation(me: Profile, m: Match, lang: Lang, hall: Hall) -> Recommenda
 
 
 WEB_DIR_ENV = "KOPIR_WEB_DIR"
+DASHBOARD_TTL_S = 30
 # Режим бота на хостинге: webhook внутри этого же сервера (см. kopir/bot/webhook.py).
 BOT_MODE_ENV = "KOPIR_BOT_MODE"
 
@@ -103,17 +105,24 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
         )
 
     # Аналитика зала: пересчитывается только при изменении состава зала.
-    dashboard_cache: dict[tuple[int, str], dict] = {}
+    # Дашборд строится ~секунду (расписание на весь зал): кэш по языку, обновление не чаще раза в 30 с,
+    # чтобы каждый новый участник не заставлял организатора ждать пересборки.
+    dashboard_cache: dict[str, tuple[float, int, dict]] = {}
+
+    def _dashboard(hall: Hall, lang: Lang) -> dict:
+        cached = dashboard_cache.get(lang)
+        if cached and (cached[1] == len(hall) or time.time() - cached[0] < DASHBOARD_TTL_S):
+            return cached[2]
+        data = asdict(dashboard.build(hall.profiles(), lang))
+        dashboard_cache[lang] = (time.time(), len(hall), data)
+        return data
+
+    threading.Thread(target=lambda: _dashboard(app.state.hall, "ru"), daemon=True).start()
 
     @app.get("/api/dashboard")
     def organizer_dashboard(request: Request, lang: Lang = "ru") -> dict:
         """Дашборд организатора: баланс ролей, востребованные навыки, карта зала, выводы."""
-        hall = get_hall(request)
-        key = (len(hall), lang)
-        if key not in dashboard_cache:
-            dashboard_cache.clear()
-            dashboard_cache[key] = asdict(dashboard.build(hall.profiles(), lang))
-        return dashboard_cache[key]
+        return _dashboard(get_hall(request), lang)
 
     def _intro_view(hall: Hall, intro: Intro, me: str, lang: Lang) -> IntroView:
         other = hall.get(intro.to_id if intro.from_id == me else intro.from_id)
@@ -137,12 +146,13 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
 
     @app.post("/api/intros")
     def request_intro(body: IntroRequest, request: Request, lang: Lang = "ru") -> IntroView:
-        """«Хочу познакомиться». Вымышленные участники демо-зала соглашаются сразу (simulated)."""
+        """«Хочу познакомиться». Вымышленные участники демо-зала соглашаются через несколько секунд (simulated)."""
         hall = get_hall(request)
         if not hall.is_live(body.from_id) or hall.get(body.to_id) is None:
             raise HTTPException(status_code=404, detail="участник не найден")
         try:
-            intro = hall.introductions.request(body.from_id, body.to_id, auto_accept=not hall.is_live(body.to_id))
+            intro = hall.introductions.request(body.from_id, body.to_id, auto_accept=not hall.is_live(body.to_id),
+                                              group=body.group)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
         return _intro_view(hall, intro, body.from_id, lang)

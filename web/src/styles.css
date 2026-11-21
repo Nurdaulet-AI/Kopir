@@ -520,6 +520,15 @@ textarea { resize: vertical; line-height: 1.5; }
 .incoming > span { flex: 1; min-width: 180px; font-size: 0.9rem; }
 .incoming .ghost-button { margin: 0; }
 
+/* --- мои встречи 1:1 --- */
+.meetings { margin-top: 16px; padding: 16px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-md); }
+.meetings h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 0.95rem; font-weight: 750; }
+.meetings ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.meetings li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.meetings__time { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-strong); min-width: 52px; }
+.meetings__who { flex: 1; min-width: 140px; font-size: 0.9rem; font-weight: 600; }
+.meetings .meet__button { padding: 6px 12px; font-size: 0.82rem; }
+
 /* --- мини-группа --- */
 .squad {
   margin-top: 20px; padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--accent-ring);

@@ -108,7 +108,7 @@ export interface IntroView {
   direction: "outgoing" | "incoming";
   simulated: boolean;
   other: Candidate;
-  beacon: { color: string; code: string; zone: number } | null;
+  beacon: { color: string; code: string; zone: number; time: string } | null;
   contact: { telegram: string | null; looks_like: string | null } | null;
 }
 
@@ -174,8 +174,8 @@ export const api = {
     request<RecommendResponse>("/api/recommend", { method: "POST", body: JSON.stringify(body) }),
   join: (profile: ProfileInput) =>
     request<{ profile_id: string }>("/api/profiles", { method: "POST", body: JSON.stringify({ profile }) }),
-  intro: (fromId: string, toId: string, lang: Lang) =>
-    request<IntroView>(`/api/intros?lang=${lang}`, { method: "POST", body: JSON.stringify({ from_id: fromId, to_id: toId }) }),
+  intro: (fromId: string, toId: string, lang: Lang, group?: string) =>
+    request<IntroView>(`/api/intros?lang=${lang}`, { method: "POST", body: JSON.stringify({ from_id: fromId, to_id: toId, group }) }),
   respond: (introId: string, profileId: string, accept: boolean, lang: Lang) =>
     request<IntroView>(`/api/intros/${introId}/respond?lang=${lang}`, {
       method: "POST",

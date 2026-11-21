@@ -47,6 +47,7 @@ class JoinResponse(BaseModel):
 class IntroRequest(BaseModel):
     from_id: str
     to_id: str
+    group: str | None = Field(default=None, max_length=40, description="общий id приглашения группы")
 
 
 class IntroAnswer(BaseModel):
@@ -58,6 +59,7 @@ class BeaconOut(BaseModel):
     color: str
     code: str
     zone: int
+    time: str
 
 
 class Contact(BaseModel):
