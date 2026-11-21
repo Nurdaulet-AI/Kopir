@@ -6,9 +6,10 @@
 """
 
 from enum import StrEnum
+from typing import Literal, get_args
 
-Lang = str  # "ru" | "kk" | "en"
-LANGS: tuple[Lang, ...] = ("ru", "kk", "en")
+Lang = Literal["ru", "kk", "en"]
+LANGS: tuple[Lang, ...] = get_args(Lang)
 
 
 class Goal(StrEnum):

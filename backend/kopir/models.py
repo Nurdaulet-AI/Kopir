@@ -9,10 +9,15 @@
 """
 
 from typing import Self
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from kopir.taxonomy import DOMAINS, ROLES, Goal, Level, normalize_skills
+from kopir.taxonomy import DOMAINS, ROLES, Goal, Lang, Level, normalize_skills
+
+
+def new_profile_id() -> str:
+    return f"u{uuid4().hex[:10]}"
 
 
 class Target(BaseModel):
@@ -40,10 +45,10 @@ class Target(BaseModel):
 
 
 class Profile(BaseModel):
-    id: str
+    id: str = Field(default_factory=new_profile_id)
     name: str
     telegram: str | None = None
-    lang: str = "ru"
+    lang: Lang = "ru"
     city: str = "Алматы"
 
     role: str
