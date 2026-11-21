@@ -415,7 +415,11 @@ export default function App() {
           <ProfileForm
             draft={draft}
             onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-            onExample={() => draft.goal && setDraft(example(draft.goal, lang))}
+            onExample={() => draft.goal && setDraft((d) => {
+              // Пример заполняет профессиональную часть; кто вы и как вас найти в зале — остаются ваши.
+              const ex = example(d.goal!, lang);
+              return { ...ex, name: d.name.trim() || ex.name, telegram: d.telegram, looksLike: d.looksLike };
+            })}
             onVoiceText={fillFromVoice}
             lang={lang}
             notice={voiceNotice}
