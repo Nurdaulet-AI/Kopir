@@ -5,3 +5,19 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+
+  # Telegram-бот из того же образа. Без TELEGRAM_BOT_TOKEN в .env спокойно
+  # завершается, не мешая сайту; при сбое перезапускается.
+  bot:
+    image: kopir:latest
+    pull_policy: never
+    command: ["python", "-m", "kopir.bot"]
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      - kopir
+    restart: on-failure
+    # Проверка здоровья образа стучится в веб-сервер на :8000, а у бота его нет.
+    healthcheck:
+      disable: true

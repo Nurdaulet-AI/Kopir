@@ -17,11 +17,14 @@ import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { format, STRINGS, type Strings, type TextKey } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
+import { announceReady, displayName, langOf, readLaunch } from "./telegram";
 
 const PAGE = 5;
 // Сервер отдаёт не больше 20 рекомендаций за запрос.
 const MAX_K = 20;
 const THEMES: Theme[] = ["light", "dark", "system"];
+// Открыты ли мы как Mini App внутри Telegram (иначе null).
+const TELEGRAM = readLaunch();
 
 // localStorage может быть недоступен (приватный режим): тогда просто не запоминаем.
 function load<T>(key: string, fallback: T): T {
@@ -78,10 +81,14 @@ function feedbackNotice(f: Feedback | null, t: Strings): string | null {
 }
 
 export default function App() {
-  const [lang, setLang] = useState<Lang>(() => loadChoice("kopir.lang", LANGS, "ru"));
-  const [theme, setTheme] = useState<Theme>(() => loadChoice("kopir.theme", THEMES, "system"));
+  // Явный выбор пользователя важнее подсказок Telegram: язык и тема клиента — только по умолчанию.
+  const [lang, setLang] = useState<Lang>(() => loadChoice("kopir.lang", LANGS, langOf(TELEGRAM) ?? "ru"));
+  const [theme, setTheme] = useState<Theme>(() => loadChoice("kopir.theme", THEMES, TELEGRAM?.colorScheme ?? "system"));
   const [options, setOptions] = useState<Options | null>(null);
-  const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY_DRAFT, ...load<Partial<Draft>>("kopir.draft", {}) }));
+  const [draft, setDraft] = useState<Draft>(() => {
+    const saved = { ...EMPTY_DRAFT, ...load<Partial<Draft>>("kopir.draft", {}) };
+    return saved.name ? saved : { ...saved, name: displayName(TELEGRAM) };
+  });
   const [results, setResults] = useState<Results | null>(null);
   const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -109,6 +116,10 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => save("kopir.draft", draft), [draft]);
+
+  useEffect(() => {
+    if (TELEGRAM) announceReady();
+  }, []);
 
   const request = (profile: ProfileInput, l: Lang, feedback: Feedback[], k: number, exclude: string[] = []) =>
     api.recommend({ profile, lang: l, k, exclude, feedback });
