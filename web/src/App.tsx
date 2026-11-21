@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowLeftRight, Languages, LoaderCircle, ShieldCheck, Zap } 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, LANGS, type Lang, type Options, type ProfileInput, type Recommendation } from "./api";
 import { LangSwitch, ThemeSwitch, type Theme } from "./components/Controls";
+import { ShanyraqMark } from "./components/Logo";
 import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { format, STRINGS, type Strings } from "./i18n";
@@ -45,22 +46,6 @@ interface Results {
   items: Recommendation[];
   elapsedMs: number;
   exhausted: boolean;
-}
-
-function BrandMark() {
-  return (
-    <svg className="brand__mark" viewBox="0 0 36 36" aria-hidden>
-      <defs>
-        <linearGradient id="brand-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--accent-from)" />
-          <stop offset="100%" stopColor="var(--accent-to)" />
-        </linearGradient>
-      </defs>
-      <rect width="36" height="36" rx="10" fill="url(#brand-gradient)" />
-      <path d="M8 23c4.2-8.7 15.8-8.7 20 0" stroke="var(--gold)" strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M11.5 22.5v4.5M24.5 22.5v4.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
-    </svg>
-  );
 }
 
 export default function App() {
@@ -155,7 +140,7 @@ export default function App() {
       <header className="topbar">
         <div className="topbar__inner">
           <div className="brand">
-            <BrandMark />
+            <ShanyraqMark />
             <span className="brand__name">Kópir</span>
           </div>
           <div className="topbar__controls">
