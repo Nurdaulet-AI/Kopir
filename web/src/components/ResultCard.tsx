@@ -1,6 +1,7 @@
-import { ArrowLeftRight, Check, Copy, Handshake, MapPin, MessageCircle, ThumbsDown, TriangleAlert, UserRound } from "lucide-react";
+import { ArrowLeftRight, Check, Clock, Copy, Handshake, MapPin, MessageCircle, Radio, Send, ThumbsDown, TriangleAlert, UserRound } from "lucide-react";
 import { useId, useState, type CSSProperties } from "react";
-import type { Reason, Recommendation } from "../api";
+import { beaconInk } from "./ink";
+import type { IntroView, Reason, Recommendation } from "../api";
 import type { Strings, TextKey } from "../i18n";
 
 const RADIUS = 24;
@@ -60,6 +61,9 @@ interface Props {
   onMet: () => void;
   onNotFit: (reason: Reason) => void;
   busy: boolean;
+  intro?: IntroView;
+  onWantMeet: () => void;
+  onOpenBeacon: () => void;
 }
 
 const REASONS: [Reason, TextKey][] = [
@@ -69,7 +73,7 @@ const REASONS: [Reason, TextKey][] = [
   ["other", "reasonOther"],
 ];
 
-export function ResultCard({ rec, t, index, onMet, onNotFit, busy }: Props) {
+export function ResultCard({ rec, t, index, onMet, onNotFit, busy, intro, onWantMeet, onOpenBeacon }: Props) {
   const { candidate: c, explanation: e } = rec;
   const [copied, setCopied] = useState(false);
   const [choosingReason, setChoosingReason] = useState(false);
@@ -158,6 +162,28 @@ export function ResultCard({ rec, t, index, onMet, onNotFit, busy }: Props) {
           {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
         </button>
       </figure>
+
+      <div className="meet">
+        {!intro && (
+          <button type="button" className="meet__button" onClick={onWantMeet} disabled={busy}>
+            <Send size={16} aria-hidden /> {t.wantMeet}
+          </button>
+        )}
+        {intro?.status === "pending" && (
+          <span className="meet__status"><Clock size={15} aria-hidden /> {t.requestSent}</span>
+        )}
+        {intro?.status === "accepted" && (
+          <>
+            <button type="button" className="meet__button meet__button--beacon" onClick={onOpenBeacon}
+                    style={{ ["--beacon" as string]: intro.beacon?.color, ["--beacon-ink" as string]: beaconInk(intro.beacon?.color) }}>
+              <Radio size={16} aria-hidden /> {t.openBeacon} · {intro.beacon?.code}
+            </button>
+            <span className="meet__status meet__status--ok">
+              <Check size={15} aria-hidden /> {t.matched}{intro.simulated ? ` (${t.simulatedNote})` : ""}
+            </span>
+          </>
+        )}
+      </div>
 
       <footer className="feedback">
         {choosingReason ? (

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from kopir.matching.engine import WEAK_MATCH, Matcher
+from kopir.meet import schedule
 from kopir.models import Profile
 from kopir.taxonomy import DOMAIN_LABELS, GOAL_LABELS, GOAL_STATUS, ROLE_LABELS, SOFT_SKILLS, Goal, Lang
 
@@ -23,6 +24,11 @@ MARKET: dict[Goal, tuple[str, str]] = {
     Goal.FIND_COFOUNDER: ("startups", "seeks"),
     Goal.SHARE_EXPERIENCE: ("startups", "offers"),
 }
+
+# Расписание: слоты по 15 минут с начала нетворкинга.
+SLOTS = 4
+START_MIN = 18 * 60
+SLOT_MIN = 15
 
 # Пороги выводов: ниже MIN_SEEKERS людей роль не обсуждаем — выборка мала.
 MIN_SEEKERS = 3
@@ -66,6 +72,8 @@ class Dashboard:
     hirers: int = 0
     openings: int = 0
     well_matched: float = 0.0  # доля участников с ≥3 сильными взаимными совпадениями
+    slots: list[dict] = field(default_factory=list)  # расписание встреч 1:1
+    scheduled: float = 0.0  # доля участников хотя бы с одной встречей
 
 
 def _features(p: Profile) -> set[str]:
@@ -145,7 +153,18 @@ def build(profiles: list[Profile], lang: Lang) -> Dashboard:
         insights.append({"kind": "top_domain", "severity": 0.0,
                          "text": t["top_domain"].format(domain=DOMAIN_LABELS[domain][lang], count=count)})
 
+    plan = schedule(profiles, slots=SLOTS)
+    met = {p.id for slot in plan for m in slot for p in (m.a, m.b)}
+    slots = [{
+        "time": f"{(START_MIN + i * SLOT_MIN) // 60:02d}:{(START_MIN + i * SLOT_MIN) % 60:02d}",
+        "meetings": [{"a_id": m.a.id, "b_id": m.b.id, "a": m.a.name, "a_role": ROLE_LABELS[m.a.role][lang], "b": m.b.name,
+                      "b_role": ROLE_LABELS[m.b.role][lang], "score": round(m.score * 100), "zone": m.zone}
+                     for m in slot],
+    } for i, slot in enumerate(plan)]
+
     return Dashboard(
+        slots=slots,
+        scheduled=round(len(met) / len(profiles), 3) if profiles else 0.0,
         participants=len(profiles),
         goals=[{"goal": g, "label": GOAL_LABELS[g][lang], "count": goals[g]} for g in Goal],
         roles=[{"role": r, "label": ROLE_LABELS[r][lang], "seekers": seekers[r], "openings": openings[r]}

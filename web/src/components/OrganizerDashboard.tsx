@@ -1,4 +1,4 @@
-import { Building2, Info, LoaderCircle, Sparkles, TriangleAlert, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, Building2, Info, LoaderCircle, MapPin, Sparkles, TriangleAlert, Users, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { ApiError, type Lang } from "../api";
 import { format, type Strings } from "../i18n";
@@ -27,6 +27,23 @@ interface Dashboard {
   domains: { domain: string; label: string; count: number }[];
   points: Point[];
   insights: { kind: string; text: string }[];
+  slots: Slot[];
+  scheduled: number;
+}
+
+interface Meeting {
+  a_id: string;
+  b_id: string;
+  a: string;
+  a_role: string;
+  b: string;
+  b_role: string;
+  score: number;
+  zone: number;
+}
+interface Slot {
+  time: string;
+  meetings: Meeting[];
 }
 
 async function loadDashboard(lang: Lang): Promise<Dashboard> {
@@ -152,14 +169,30 @@ function PairedBars({ rows, supplyLabel, demandLabel }: { rows: PairRow[]; suppl
   );
 }
 
-/** Карта зала: цвет — рынок, форма — сторона (залитая — ищет, контур — предлагает). */
-function HallMap({ points, t }: { points: Point[]; t: Strings }) {
+/** Карта зала — «созвездие»: люди-звёзды, свечение рынков, линии — встречи 1:1 из расписания.
+ * Цвет — рынок, форма — сторона (залитая — ищет, контур — предлагает). Наведение подсвечивает пары человека. */
+function HallMap({ points, links, t }: { points: Point[]; links: [string, string][]; t: Strings }) {
   const [tip, setTip] = useState<Tip | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const W = 1000;
   const H = 520;
-  const counts = (market: Market) => points.filter((p) => p.market === market).length;
+  const pos = new Map(points.map((p) => [p.id, { x: p.x * W, y: (1 - p.y) * H, p }]));
   const marketLabel: Record<Market, string> = { jobs: t.marketJobs, mentoring: t.marketMentoring, startups: t.marketStartups };
+  const counts = (market: Market) => points.filter((p) => p.market === market).length;
+  // Центр рынка — медиана (среднее тянет к центру зала), радиус свечения — по медианному разбросу.
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return s.length ? s[Math.floor(s.length / 2)] : 0;
+  };
+  const clusters = MARKETS.map((m) => {
+    const ps = points.filter((p) => p.market === m).map((p) => pos.get(p.id)!);
+    const cx = median(ps.map((p) => p.x));
+    const cy = median(ps.map((p) => p.y));
+    const spread = median(ps.map((p) => Math.hypot(p.x - cx, p.y - cy)));
+    return { m, cx, cy, r: Math.max(110, spread * 2.2) };
+  });
+  const neighbours = new Set(hovered ? links.flatMap(([a, b]) => (a === hovered ? [b] : b === hovered ? [a] : [])) : []);
+  const lit = (id: string) => !hovered || id === hovered || neighbours.has(id);
   // Контуры рисуем первыми, залитые — поверх: мелкие кольца не теряются под точками.
   const ordered = [...points].sort((a, b) => (a.side === b.side ? 0 : a.side === "offers" ? -1 : 1));
   return (
@@ -169,26 +202,51 @@ function HallMap({ points, t }: { points: Point[]; t: Strings }) {
         { label: t.sideSeeks, color: "var(--text-3)" },
         { label: t.sideOffers, color: "var(--text-3)", hollow: true },
       ]} />
-      <div className="map">
+      <div className="map map--sky">
         <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t.mapTitle} preserveAspectRatio="xMidYMid meet">
+          <defs>
+            {MARKETS.map((m) => (
+              <radialGradient id={`glow-${m}`} key={m}>
+                <stop offset="0%" stopColor={MARKET_COLOR[m]} stopOpacity="0.32" />
+                <stop offset="60%" stopColor={MARKET_COLOR[m]} stopOpacity="0.08" />
+                <stop offset="100%" stopColor={MARKET_COLOR[m]} stopOpacity="0" />
+              </radialGradient>
+            ))}
+          </defs>
+          {clusters.map((c) => (
+            <circle key={c.m} cx={c.cx} cy={c.cy} r={c.r} fill={`url(#glow-${c.m})`} className="map__glow" />
+          ))}
+          <g className="map__links">
+            {links.map(([a, b]) => {
+              const pa = pos.get(a);
+              const pb = pos.get(b);
+              if (!pa || !pb) return null;
+              const active = hovered !== null && (a === hovered || b === hovered);
+              return (
+                <line key={`${a}-${b}`} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
+                      className={active ? "map__link is-active" : hovered ? "map__link is-dim" : "map__link"} />
+              );
+            })}
+          </g>
           {ordered.map((p) => {
-            const cx = p.x * W;
-            const cy = (1 - p.y) * H;
+            const { x: cx, y: cy } = pos.get(p.id)!;
             const color = MARKET_COLOR[p.market];
             const hollow = p.side === "offers";
             return (
-              <g key={p.id} className={hovered && hovered !== p.id ? "map__point is-dim" : "map__point"}>
+              <g key={p.id} className={lit(p.id) ? (p.id === hovered ? "map__point is-hot" : "map__point") : "map__point is-dim"}>
                 <circle cx={cx} cy={cy} r={hollow ? 5.5 : 6.5} fill={hollow ? "var(--surface)" : color}
                         stroke={hollow ? color : "var(--surface)"} strokeWidth={hollow ? 2.6 : 2} />
                 <circle
                   cx={cx} cy={cy} r={14} fill="transparent"
                   onMouseEnter={(e) => {
                     const box = e.currentTarget.ownerSVGElement!.parentElement!.getBoundingClientRect();
+                    const n = links.filter(([a, b]) => a === p.id || b === p.id).length;
                     setHovered(p.id);
                     setTip({
                       x: e.clientX - box.left + 14,
                       y: e.clientY - box.top + 10,
-                      content: (<><strong>{p.name}</strong><span>{p.role}</span><span>{p.goal_label}</span></>),
+                      content: (<><strong>{p.name}</strong><span>{p.role}</span><span>{p.goal_label}</span>
+                        <span>{format(t.scheduleMeetings, { n })}</span></>),
                     });
                   }}
                 />
@@ -211,6 +269,40 @@ function HallMap({ points, t }: { points: Point[]; t: Strings }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Расписание 1:1: вкладки слотов, у каждой пары — зона зала. */
+function Schedule({ slots, scheduled, t }: { slots: Slot[]; scheduled: number; t: Strings }) {
+  const [active, setActive] = useState(0);
+  const slot = slots[active];
+  if (!slot) return null;
+  return (
+    <div className="schedule">
+      <div className="schedule__bar">
+        <div className="segmented">
+          {slots.map((s, i) => (
+            <button key={s.time} type="button" aria-pressed={i === active} onClick={() => setActive(i)}>
+              {s.time}
+            </button>
+          ))}
+        </div>
+        <span className="schedule__meta">
+          {format(t.scheduleMeetings, { n: slot.meetings.length })} · {format(t.scheduleCoverage, { n: Math.round(scheduled * 100) })}
+        </span>
+      </div>
+      <ol className="schedule__list">
+        {slot.meetings.slice(0, 12).map((m) => (
+          <li key={`${m.a_id}-${m.b_id}`} className="schedule__item">
+            <span className="schedule__zone"><MapPin size={13} aria-hidden /> {m.zone}</span>
+            <span className="schedule__who"><b>{m.a}</b><small>{m.a_role}</small></span>
+            <span className="schedule__score" title={`${m.score}%`}><ArrowLeftRight size={14} aria-label={`${m.score}%`} /></span>
+            <span className="schedule__who schedule__who--end"><b>{m.b}</b><small>{m.b_role}</small></span>
+          </li>
+        ))}
+      </ol>
+      {slot.meetings.length > 12 && <p className="schedule__more">+{slot.meetings.length - 12}</p>}
     </div>
   );
 }
@@ -287,7 +379,8 @@ export function OrganizerDashboard({ lang, t }: { lang: Lang; t: Strings }) {
 
       <div className="panels">
         <Panel title={t.mapTitle} hint={t.mapHint} wide>
-          <HallMap points={data.points} t={t} />
+          <HallMap points={data.points} t={t}
+                   links={data.slots.flatMap((s) => s.meetings.map((m) => [m.a_id, m.b_id] as [string, string]))} />
         </Panel>
         <Panel title={t.rolesTitle} hint={t.rolesHint}>
           <PairedBars supplyLabel={t.rolesSeekers} demandLabel={t.rolesOpenings}
@@ -296,6 +389,9 @@ export function OrganizerDashboard({ lang, t }: { lang: Lang; t: Strings }) {
         <Panel title={t.skillsTitle} hint={t.skillsHint}>
           <PairedBars supplyLabel={t.skillsSupply} demandLabel={t.skillsDemand}
                       rows={data.skills.map((s) => ({ key: s.skill, label: s.skill, supply: s.supply, demand: s.demand }))} />
+        </Panel>
+        <Panel title={t.scheduleTitle} hint={t.scheduleHint} wide>
+          <Schedule slots={data.slots} scheduled={data.scheduled} t={t} />
         </Panel>
         <Panel title={t.domainsTitle} wide>
           <DomainBars domains={data.domains} />

@@ -452,6 +452,106 @@ textarea { resize: vertical; line-height: 1.5; }
 .domains li { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: center; }
 .domains__label { font-size: 0.85rem; color: var(--text-2); }
 
+/* --- карта-созвездие: ночное небо в любой теме, цвета — тёмные шаги проверенной палитры --- */
+.map--sky {
+  --surface: #0b1220; --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgb(57 135 229 / 18%), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgb(25 158 112 / 14%), transparent 50%),
+    #0b1220;
+  border: 1px solid rgb(255 255 255 / 6%);
+}
+.map__glow { pointer-events: none; animation: breathe 6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.map__link { stroke: rgb(220 235 255 / 9%); stroke-width: 1; transition: stroke 0.15s, opacity 0.15s; }
+.map__link.is-dim { opacity: 0.25; }
+.map__link.is-active { stroke: #ffd76a; stroke-width: 2; }
+.map__point.is-hot circle:first-child { filter: drop-shadow(0 0 6px #ffd76a); }
+.map__label { fill: rgb(233 239 244 / 88%); paint-order: stroke; stroke: #0b1220; stroke-width: 5px; font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
+.map--sky .viz-tip { color: #a3b0bc; background: #161e27; border-color: #2b3744; }
+.map--sky .viz-tip strong { color: #e9eff4; }
+@keyframes breathe { 50% { transform: scale(1.06); opacity: 0.85; } }
+
+/* --- расписание 1:1 --- */
+.schedule__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.schedule__meta { font-size: 0.82rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.schedule__list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin: 0; padding: 0; list-style: none; }
+.schedule__item {
+  display: grid; grid-template-columns: auto 1fr auto 1fr; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border);
+}
+.schedule__zone {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 700; color: var(--accent-strong); background: var(--accent-soft);
+}
+.schedule__who { display: grid; min-width: 0; }
+.schedule__who b { font-size: 0.86rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule__who small { font-size: 0.74rem; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule__who--end { text-align: right; }
+.schedule__score {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px;
+  color: var(--accent-strong); background: var(--accent-soft);
+}
+.schedule__more { margin: 10px 0 0; font-size: 0.82rem; color: var(--text-3); text-align: center; }
+
+/* --- голосовая анкета --- */
+.section__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.voice { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.voice__hint { font-size: 0.8rem; color: var(--text-2); }
+.ghost-button.is-recording { color: #fff; background: #e5484d; box-shadow: 0 0 0 0 rgb(229 72 77 / 50%); animation: rec 1.4s ease-out infinite; }
+@keyframes rec { to { box-shadow: 0 0 0 10px rgb(229 72 77 / 0%); } }
+
+/* --- знакомство: двойное согласие --- */
+.meet { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.meet__button {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border: 0; border-radius: 10px; cursor: pointer;
+  font: inherit; font-size: 0.88rem; font-weight: 650; color: #fff;
+  background: linear-gradient(135deg, var(--accent-from), var(--accent-to)); box-shadow: var(--shadow-accent);
+  transition: transform 0.15s, filter 0.15s;
+}
+.meet__button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+.meet__button:disabled { opacity: 0.6; cursor: progress; }
+.meet__button--beacon { background: var(--beacon); color: var(--beacon-ink, #fff); box-shadow: 0 8px 24px -10px var(--beacon); }
+.meet__status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 600; color: var(--text-2); }
+.meet__status--ok { color: var(--accent-strong); }
+.incoming {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; padding: 12px 14px;
+  border-radius: 12px; border: 1px solid var(--accent-ring); background: var(--accent-soft); animation: rise 0.3s ease both;
+}
+.incoming > span { flex: 1; min-width: 180px; font-size: 0.9rem; }
+.incoming .ghost-button { margin: 0; }
+
+/* --- маячок: весь экран одним цветом, код видно через зал --- */
+.beacon {
+  position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 24px 16px; text-align: center; color: var(--beacon-ink, #fff); background: var(--beacon); overflow: hidden;
+  animation: beacon-in 0.25s ease both;
+}
+.beacon::before {
+  content: ""; position: absolute; inset: -20%; pointer-events: none;
+  background: radial-gradient(circle at center, rgb(255 255 255 / 28%), transparent 55%);
+  animation: beacon-pulse 1.6s ease-in-out infinite;
+}
+.beacon > * { position: relative; }
+.beacon__close {
+  position: absolute; top: 16px; right: 16px; display: grid; place-items: center; width: 44px; height: 44px;
+  border: 0; border-radius: 999px; color: inherit; background: rgb(0 0 0 / 16%); cursor: pointer;
+}
+.beacon__zone { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 8px 16px; border-radius: 999px;
+  font-size: 1.1rem; font-weight: 700; background: rgb(0 0 0 / 22%); }
+.beacon__code { margin: 0; font-size: clamp(6rem, 32vw, 15rem); line-height: 1; font-weight: 800; letter-spacing: -0.04em;
+  text-shadow: 0 6px 30px rgb(0 0 0 / 25%); font-variant-numeric: tabular-nums; }
+.beacon__name { margin: 0; font-size: 1.6rem; font-weight: 750; }
+.beacon__hint { margin: 0; max-width: 34ch; font-size: 1rem; opacity: 0.92; }
+.beacon__facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+.beacon__facts > * { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+  background: rgb(0 0 0 / 16%); color: inherit; font-size: 0.92rem; font-weight: 600; text-decoration: none; }
+@keyframes beacon-in { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
+@keyframes beacon-pulse { 50% { opacity: 0.35; transform: scale(1.12); } }
+
+@media (max-width: 640px) {
+  .schedule__list { grid-template-columns: 1fr; }
+}
+
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 @media (max-width: 900px) {

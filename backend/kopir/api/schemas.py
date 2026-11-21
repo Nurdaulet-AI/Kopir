@@ -34,6 +34,51 @@ class RecommendRequest(BaseModel):
     feedback: list[Feedback] = Field(default_factory=list, description="отзывы: исключают людей и меняют личные веса")
 
 
+class JoinRequest(BaseModel):
+    profile: Profile
+
+
+class JoinResponse(BaseModel):
+    profile_id: str
+
+
+class IntroRequest(BaseModel):
+    from_id: str
+    to_id: str
+
+
+class IntroAnswer(BaseModel):
+    profile_id: str
+    accept: bool
+
+
+class BeaconOut(BaseModel):
+    color: str
+    code: str
+    zone: int
+
+
+class Contact(BaseModel):
+    telegram: str | None
+    looks_like: str | None
+
+
+class IntroView(BaseModel):
+    """Запрос на знакомство глазами одного участника. Контакт — только после взаимного «да»."""
+
+    id: str
+    status: str
+    direction: str  # outgoing | incoming
+    simulated: bool
+    other: "Candidate"
+    beacon: BeaconOut | None = None
+    contact: Contact | None = None
+
+
+class ParseRequest(BaseModel):
+    text: str = Field(max_length=2000)
+
+
 class Option(BaseModel):
     value: str
     label: str
@@ -88,3 +133,7 @@ class RecommendResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     profiles: int
+
+
+# IntroView ссылается на Candidate, объявленный ниже.
+IntroView.model_rebuild()

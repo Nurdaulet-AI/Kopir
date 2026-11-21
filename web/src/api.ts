@@ -102,6 +102,25 @@ export interface RecommendRequest {
   feedback?: Feedback[];
 }
 
+export interface IntroView {
+  id: string;
+  status: "pending" | "accepted" | "declined";
+  direction: "outgoing" | "incoming";
+  simulated: boolean;
+  other: Candidate;
+  beacon: { color: string; code: string; zone: number } | null;
+  contact: { telegram: string | null; looks_like: string | null } | null;
+}
+
+export interface ParsedProfile {
+  role: string | null;
+  level: Level | null;
+  years: number | null;
+  goal: Goal | null;
+  stack: string[];
+  interests: string[];
+}
+
 /** Ошибка API с человекочитаемым текстом (в том числе из ответа 422). */
 export class ApiError extends Error {
   readonly status: number;
@@ -145,4 +164,16 @@ export const api = {
   options: (lang: Lang) => request<Options>(`/api/options?lang=${lang}`),
   recommend: (body: RecommendRequest) =>
     request<RecommendResponse>("/api/recommend", { method: "POST", body: JSON.stringify(body) }),
+  join: (profile: ProfileInput) =>
+    request<{ profile_id: string }>("/api/profiles", { method: "POST", body: JSON.stringify({ profile }) }),
+  intro: (fromId: string, toId: string, lang: Lang) =>
+    request<IntroView>(`/api/intros?lang=${lang}`, { method: "POST", body: JSON.stringify({ from_id: fromId, to_id: toId }) }),
+  respond: (introId: string, profileId: string, accept: boolean, lang: Lang) =>
+    request<IntroView>(`/api/intros/${introId}/respond?lang=${lang}`, {
+      method: "POST",
+      body: JSON.stringify({ profile_id: profileId, accept }),
+    }),
+  intros: (profileId: string, lang: Lang) =>
+    request<IntroView[]>(`/api/intros?profile_id=${encodeURIComponent(profileId)}&lang=${lang}`),
+  parse: (text: string) => request<ParsedProfile>("/api/parse", { method: "POST", body: JSON.stringify({ text }) }),
 };

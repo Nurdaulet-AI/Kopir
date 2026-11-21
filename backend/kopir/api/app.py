@@ -15,7 +15,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 
 from kopir.api.schemas import (
+    BeaconOut,
     Candidate,
+    Contact,
+    IntroAnswer,
+    IntroRequest,
+    IntroView,
+    JoinRequest,
+    JoinResponse,
+    ParseRequest,
     ExplanationOut,
     HealthResponse,
     Option,
@@ -29,6 +37,8 @@ from kopir.explain import explain
 from kopir.hall import Hall
 from kopir.matching.engine import Match
 from kopir.matching.feedback import preference_factors
+from kopir.meet import Intro
+from kopir.voice import parse as parse_text
 from kopir.models import Profile, new_profile_id
 from kopir.taxonomy import DOMAIN_LABELS, GOAL_LABELS, GOAL_STATUS, LEVEL_LABELS, ROLE_LABELS, SKILLS, Goal, Lang, Level
 
@@ -102,6 +112,57 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
             dashboard_cache.clear()
             dashboard_cache[key] = asdict(dashboard.build(hall.profiles(), lang))
         return dashboard_cache[key]
+
+    def _intro_view(hall: Hall, intro: Intro, me: str, lang: Lang) -> IntroView:
+        other = hall.get(intro.to_id if intro.from_id == me else intro.from_id)
+        if other is None:
+            raise HTTPException(status_code=404, detail="участник не найден")
+        accepted = intro.status == "accepted"
+        return IntroView(
+            id=intro.id, status=intro.status, simulated=intro.simulated,
+            direction="outgoing" if intro.from_id == me else "incoming",
+            other=_candidate(other, lang),
+            beacon=BeaconOut(**asdict(intro.beacon)) if accepted and intro.beacon else None,
+            contact=Contact(telegram=other.telegram, looks_like=other.looks_like) if accepted else None,
+        )
+
+    @app.post("/api/profiles")
+    def join_hall(body: JoinRequest, request: Request) -> JoinResponse:
+        """Войти в зал: анкету начнут рекомендовать другим, можно знакомиться."""
+        profile = body.profile.model_copy(update={"id": new_profile_id()})
+        get_hall(request).join(profile)
+        return JoinResponse(profile_id=profile.id)
+
+    @app.post("/api/intros")
+    def request_intro(body: IntroRequest, request: Request, lang: Lang = "ru") -> IntroView:
+        """«Хочу познакомиться». Вымышленные участники демо-зала соглашаются сразу (simulated)."""
+        hall = get_hall(request)
+        if not hall.is_live(body.from_id) or hall.get(body.to_id) is None:
+            raise HTTPException(status_code=404, detail="участник не найден")
+        try:
+            intro = hall.introductions.request(body.from_id, body.to_id, auto_accept=not hall.is_live(body.to_id))
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        return _intro_view(hall, intro, body.from_id, lang)
+
+    @app.post("/api/intros/{intro_id}/respond")
+    def respond_intro(intro_id: str, body: IntroAnswer, request: Request, lang: Lang = "ru") -> IntroView:
+        hall = get_hall(request)
+        try:
+            intro = hall.introductions.respond(intro_id, body.profile_id, body.accept)
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail="запрос не найден") from e
+        return _intro_view(hall, intro, body.profile_id, lang)
+
+    @app.get("/api/intros")
+    def list_intros(profile_id: str, request: Request, lang: Lang = "ru") -> list[IntroView]:
+        hall = get_hall(request)
+        return [_intro_view(hall, i, profile_id, lang) for i in hall.introductions.of(profile_id)]
+
+    @app.post("/api/parse")
+    def parse_profile_text(body: ParseRequest) -> dict:
+        """Рассказ о себе (голосом или текстом) → поля анкеты."""
+        return asdict(parse_text(body.text))
 
     @app.post("/api/recommend")
     def recommend(body: RecommendRequest, request: Request) -> RecommendResponse:

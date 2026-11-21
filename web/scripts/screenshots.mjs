@@ -36,7 +36,7 @@ async function shoot(browser, theme, device) {
   await page.screenshot({ path: name("1-landing") });
 
   await page.locator(".goal").nth(GOAL_INDEX).click();
-  await page.locator(".section .ghost-button").first().click();
+  await page.locator(".section__actions > .ghost-button").first().click();
   await page.waitForTimeout(600); // анимация появления секций
   await page.screenshot({ path: name("2-form"), fullPage: true });
 

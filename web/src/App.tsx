@@ -1,16 +1,18 @@
-import { ArrowLeft, ArrowLeftRight, Handshake, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ArrowLeft, ArrowLeftRight, BellRing, Check, Handshake, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   ApiError,
   LANGS,
   type Feedback,
+  type IntroView,
   type Lang,
   type Options,
   type ProfileInput,
   type Reason,
   type Recommendation,
 } from "./api";
+import { Beacon } from "./components/Beacon";
 import { LangSwitch, ThemeSwitch, type Theme } from "./components/Controls";
 import { ShanyraqMark } from "./components/Logo";
 import { OrganizerDashboard } from "./components/OrganizerDashboard";
@@ -99,6 +101,12 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(initialView);
+  // Знакомства: id в зале появляется при первом «Хочу познакомиться».
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [intros, setIntros] = useState<IntroView[]>([]);
+  const [beacon, setBeacon] = useState<IntroView | null>(null);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const joining = useRef<Promise<string> | null>(null);
   const t = STRINGS[lang];
 
   const changeView = (next: View) => {
@@ -136,6 +144,72 @@ export default function App() {
     if (TELEGRAM) announceReady();
   }, []);
 
+  // Опрос входящих запросов и подтверждений: на мероприятии хватает раза в 4 секунды.
+  useEffect(() => {
+    if (!profileId) return;
+    let cancelled = false;
+    const tick = () => api.intros(profileId, lang).then((list) => !cancelled && setIntros(list), () => undefined);
+    void tick();
+    const timer = window.setInterval(tick, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [profileId, lang]);
+
+  const upsertIntro = (intro: IntroView) =>
+    setIntros((list) => [intro, ...list.filter((i) => i.id !== intro.id)]);
+
+  /** Анкета попадает в зал один раз — при первом запросе на знакомство. */
+  const ensureJoined = (profile: ProfileInput): Promise<string> => {
+    if (profileId) return Promise.resolve(profileId);
+    joining.current ??= api.join(profile).then((r) => {
+      setProfileId(r.profile_id);
+      return r.profile_id;
+    });
+    return joining.current;
+  };
+
+  const wantMeet = (rec: Recommendation) => {
+    if (!results) return;
+    void guarded(async () => {
+      const me = await ensureJoined(results.profile);
+      const intro = await api.intro(me, rec.candidate.id, lang);
+      upsertIntro(intro);
+      if (intro.status === "accepted") setBeacon(intro);
+    }, lang);
+  };
+
+  const answer = (intro: IntroView, accept: boolean) => {
+    if (!profileId) return;
+    void guarded(async () => {
+      const updated = await api.respond(intro.id, profileId, accept, lang);
+      upsertIntro(updated);
+      if (updated.status === "accepted") setBeacon(updated);
+    }, lang);
+  };
+
+  /** Голосовая анкета: текст дописывается в «о себе», распознанные поля заполняют пустые места формы. */
+  const fillFromVoice = (text: string) => {
+    void guarded(async () => {
+      const parsed = await api.parse(text);
+      setDraft((d) => {
+        const merge = (a: string[], b: string[]) => [...a, ...b.filter((x) => !a.includes(x))];
+        return {
+          ...d,
+          about: d.about ? `${d.about} ${text}` : text,
+          role: parsed.role ?? d.role,
+          level: parsed.level ?? d.level,
+          years: parsed.years ?? d.years,
+          goal: d.goal ?? parsed.goal,
+          stack: merge(d.stack, parsed.stack),
+          interests: merge(d.interests, parsed.interests),
+        };
+      });
+      setVoiceNotice(t.voiceFilled);
+    }, lang);
+  };
+
   const request = (profile: ProfileInput, l: Lang, feedback: Feedback[], k: number, exclude: string[] = []) =>
     api.recommend({ profile, lang: l, k, exclude, feedback });
 
@@ -162,6 +236,10 @@ export default function App() {
       return;
     }
     const profile = toProfile(draft, lang);
+    // Новая анкета — новое место в зале: прежние запросы относятся к старой версии.
+    setProfileId(null);
+    setIntros([]);
+    joining.current = null;
     setPending(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
     void guarded(async () => {
@@ -260,6 +338,9 @@ export default function App() {
             draft={draft}
             onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
             onExample={() => draft.goal && setDraft(example(draft.goal, lang))}
+            onVoiceText={fillFromVoice}
+            lang={lang}
+            notice={voiceNotice}
             onSubmit={submit}
             options={options}
             t={t}
@@ -285,6 +366,18 @@ export default function App() {
                 <Sparkles size={15} aria-hidden /> {feedbackNotice(results.lastFeedback, t)}
               </p>
             )}
+            {intros.filter((i) => i.direction === "incoming" && i.status === "pending").map((i) => (
+              <div className="incoming" key={i.id} role="status">
+                <BellRing size={18} aria-hidden />
+                <span><b>{i.other.name}</b> · {i.other.role_label} — {t.incoming}</span>
+                <button type="button" className="meet__button" onClick={() => answer(i, true)} disabled={busy}>
+                  <Check size={15} aria-hidden /> {t.accept}
+                </button>
+                <button type="button" className="ghost-button" onClick={() => answer(i, false)} disabled={busy}>
+                  {t.decline}
+                </button>
+              </div>
+            ))}
             {results && results.met.length > 0 && (
               <div className="met">
                 <span className="met__title"><Handshake size={15} aria-hidden /> {t.metTitle}</span>
@@ -305,6 +398,9 @@ export default function App() {
                       busy={busy}
                       onMet={() => giveFeedback(rec, { candidate_id: rec.candidate.id, verdict: "met" })}
                       onNotFit={(reason) => giveFeedback(rec, { candidate_id: rec.candidate.id, verdict: "not_fit", reason })}
+                      intro={intros.find((i) => i.other.id === rec.candidate.id && i.status !== "declined")}
+                      onWantMeet={() => wantMeet(rec)}
+                      onOpenBeacon={() => setBeacon(intros.find((i) => i.other.id === rec.candidate.id) ?? null)}
                     />
                   ))}
             </div>
@@ -320,6 +416,7 @@ export default function App() {
           </section>
         )}
       </main>
+      {beacon && <Beacon intro={beacon} t={t} onClose={() => setBeacon(null)} />}
     </div>
   );
 }

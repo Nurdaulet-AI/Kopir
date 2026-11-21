@@ -15,6 +15,7 @@ from pathlib import Path
 from kopir.data.generator import generate
 from kopir.matching.engine import Match, Matcher
 from kopir.matching.feedback import Factors
+from kopir.meet import Introductions
 from kopir.models import Profile
 
 # Сид зала по умолчанию: тот же, что у выгруженного data/profiles.json.
@@ -31,6 +32,8 @@ class Hall:
         self._by_id = {p.id: p for p in profiles}
         self._matcher = Matcher(list(profiles))
         self._skills: Counter[str] = Counter()
+        self._joined: set[str] = set()  # живые участники, пришедшие через интерфейс
+        self.introductions = Introductions()
         for p in profiles:
             self._count_skills(p)
 
@@ -57,6 +60,10 @@ class Hall:
         with self._lock:
             return list(self._matcher.profiles)
 
+    def is_live(self, profile_id: str) -> bool:
+        """Живой ли это человек (а не вымышленная анкета демо-зала)."""
+        return profile_id in self._joined
+
     def __len__(self) -> int:
         return len(self._by_id)
 
@@ -71,6 +78,7 @@ class Hall:
             self._by_id[profile.id] = profile
             self._matcher.profiles.append(profile)
             self._count_skills(profile)
+            self._joined.add(profile.id)
 
     def recommend(
         self, me: Profile, k: int = 5, exclude: Collection[str] = (), factors: Factors | None = None

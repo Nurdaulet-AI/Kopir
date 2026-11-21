@@ -1,17 +1,21 @@
 import { ArrowRight, LoaderCircle, Plus, Sparkles, X } from "lucide-react";
 import { useId, type FormEvent, type ReactNode } from "react";
-import type { Level, Options } from "../api";
+import type { Lang, Level, Options } from "../api";
 import type { Strings } from "../i18n";
 import { EMPTY_OPENING, type Draft, type OpeningDraft } from "../profile";
 import { ChipSelect } from "./ChipSelect";
 import { Field } from "./Field";
 import { GoalPicker } from "./GoalPicker";
 import { TagInput } from "./TagInput";
+import { VoiceButton } from "./VoiceButton";
 
 interface Props {
   draft: Draft;
   onChange: (patch: Partial<Draft>) => void;
   onExample: () => void;
+  onVoiceText: (text: string) => void;
+  lang: Lang;
+  notice: string | null;
   onSubmit: () => void;
   options: Options;
   t: Strings;
@@ -33,7 +37,7 @@ function Section({ step, title, action, children }: { step: number; title: strin
   );
 }
 
-export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, busy, error }: Props) {
+export function ProfileForm({ draft, onChange, onExample, onVoiceText, lang, notice, onSubmit, options, t, busy, error }: Props) {
   const goalTitleId = useId();
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -60,11 +64,15 @@ export function ProfileForm({ draft, onChange, onExample, onSubmit, options, t, 
             step={2}
             title={t.aboutYou}
             action={
-              <button type="button" className="ghost-button" onClick={onExample}>
-                <Sparkles size={16} aria-hidden /> {t.fillExample}
-              </button>
+              <div className="section__actions">
+                <VoiceButton lang={lang} t={t} onText={onVoiceText} />
+                <button type="button" className="ghost-button" onClick={onExample}>
+                  <Sparkles size={16} aria-hidden /> {t.fillExample}
+                </button>
+              </div>
             }
           >
+            {notice && <p className="notice" role="status"><Sparkles size={15} aria-hidden /> {notice}</p>}
             <div className="grid">
               <Field label={t.name}>
                 {(_, id) => (
