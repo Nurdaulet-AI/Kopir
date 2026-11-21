@@ -1,0 +1,18 @@
+# Развёртывание на Render (Blueprint): один бесплатный Docker-сервис —
+# веб-интерфейс, API и Telegram-бот в режиме webhook.
+# Публичный адрес Render подставляет сам (RENDER_EXTERNAL_URL).
+services:
+  - type: web
+    name: kopir
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: KOPIR_BOT_MODE
+        value: webhook
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false # секрет: вводится в панели Render при создании, в репозиторий не попадает

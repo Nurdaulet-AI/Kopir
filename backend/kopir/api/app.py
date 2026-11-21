@@ -57,6 +57,13 @@ def _recommendation(me: Profile, m: Match, lang: Lang, hall: Hall) -> Recommenda
 
 
 WEB_DIR_ENV = "KOPIR_WEB_DIR"
+# Режим бота на хостинге: webhook внутри этого же сервера (см. kopir/bot/webhook.py).
+BOT_MODE_ENV = "KOPIR_BOT_MODE"
+
+
+def _public_url() -> str | None:
+    """Публичный адрес сервиса: задан явно или выдан хостингом (Render — RENDER_EXTERNAL_URL)."""
+    return os.environ.get("KOPIR_PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL")
 
 
 def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI:
@@ -105,6 +112,12 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
             factors=factors,
             elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
         )
+
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if os.environ.get(BOT_MODE_ENV) == "webhook" and token and _public_url():
+        from kopir.bot.webhook import attach_webhook  # aiogram нужен только в этом режиме
+
+        attach_webhook(app, token, _public_url())
 
     # Статика монтируется последней: маршруты /api/* уже зарегистрированы и имеют приоритет.
     web_dir = web_dir or (Path(os.environ[WEB_DIR_ENV]) if WEB_DIR_ENV in os.environ else None)
