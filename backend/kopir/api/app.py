@@ -134,7 +134,9 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
             direction="outgoing" if intro.from_id == me else "incoming",
             other=_candidate(other, lang),
             beacon=BeaconOut(**asdict(intro.beacon)) if accepted and intro.beacon else None,
-            contact=Contact(telegram=other.telegram, looks_like=other.looks_like) if accepted else None,
+            # Ник вымышленного участника может совпасть с чужим реальным аккаунтом — его не показываем.
+            contact=Contact(telegram=other.telegram if hall.is_live(other.id) else None,
+                            looks_like=other.looks_like) if accepted else None,
         )
 
     @app.post("/api/profiles")

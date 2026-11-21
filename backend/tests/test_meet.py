@@ -99,7 +99,8 @@ class TestApi:
         client.app.state.hall.introductions.sim_delay = 0
         view = client.post("/api/intros", json={"from_id": me, "to_id": "p050"}).json()
         assert view["status"] == "accepted" and view["simulated"] and view["beacon"]["code"]
-        assert view["beacon"]["time"] == "18:00" and view["contact"]["telegram"]
+        assert view["beacon"]["time"] == "18:00" and view["contact"]["looks_like"]
+        assert view["contact"]["telegram"] is None  # вымышленный ник не ведёт к реальному аккаунту
 
     def test_contact_hidden_until_demo_participant_answers(self, client):
         me = self._join(client)
