@@ -92,7 +92,7 @@ def test_missed_requirement_is_warned_about():
     mentee = make(Goal.FIND_MENTOR, level=Level.JUNIOR, years=1, target={"skills": ["Kafka"]})
     peer = make(Goal.BE_MENTOR, years=1.5, stack=["Kafka"])
     match = Matcher([peer]).recommend(mentee, record=False)[0]
-    assert explain(mentee, match, "ru").warnings == ["опыт почти как у вас"]
+    assert explain(mentee, match, "ru").warnings == ["разрыв в опыте слишком мал для менторства"]
 
 
 def test_good_match_has_no_warnings():

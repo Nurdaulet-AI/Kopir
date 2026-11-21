@@ -24,8 +24,8 @@
   },
   "warning": {
     "role": "role does not match the request",
-    "experience_gap": "similar experience to yours",
-    "topic_covered": "requested topics not covered",
+    "experience_gap": "experience gap too small for mentoring",
+    "topic_covered": "covers none of the requested topics",
     "common_craft": "no shared stack"
   },
   "icebreaker": {
