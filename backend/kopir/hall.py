@@ -52,6 +52,11 @@ class Hall:
         path = os.environ.get(PROFILES_ENV)
         return cls.from_file(Path(path)) if path else cls(generate(seed=DEFAULT_SEED))
 
+    def profiles(self) -> list[Profile]:
+        """Снимок участников зала (копия списка: зал может пополняться параллельно)."""
+        with self._lock:
+            return list(self._matcher.profiles)
+
     def __len__(self) -> int:
         return len(self._by_id)
 

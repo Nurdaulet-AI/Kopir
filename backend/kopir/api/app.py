@@ -24,6 +24,7 @@ from kopir.api.schemas import (
     RecommendRequest,
     RecommendResponse,
 )
+from kopir import dashboard
 from kopir.explain import explain
 from kopir.hall import Hall
 from kopir.matching.engine import Match
@@ -88,6 +89,19 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
             domains=[Option(value=d, label=labels[lang]) for d, labels in DOMAIN_LABELS.items()],
             skills=list(SKILLS),
         )
+
+    # Аналитика зала: пересчитывается только при изменении состава зала.
+    dashboard_cache: dict[tuple[int, str], dict] = {}
+
+    @app.get("/api/dashboard")
+    def organizer_dashboard(request: Request, lang: Lang = "ru") -> dict:
+        """Дашборд организатора: баланс ролей, востребованные навыки, карта зала, выводы."""
+        hall = get_hall(request)
+        key = (len(hall), lang)
+        if key not in dashboard_cache:
+            dashboard_cache.clear()
+            dashboard_cache[key] = asdict(dashboard.build(hall.profiles(), lang))
+        return dashboard_cache[key]
 
     @app.post("/api/recommend")
     def recommend(body: RecommendRequest, request: Request) -> RecommendResponse:

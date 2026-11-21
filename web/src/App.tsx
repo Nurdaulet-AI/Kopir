@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftRight, Handshake, Languages, LoaderCircle, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Handshake, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   api,
@@ -13,6 +13,7 @@ import {
 } from "./api";
 import { LangSwitch, ThemeSwitch, type Theme } from "./components/Controls";
 import { ShanyraqMark } from "./components/Logo";
+import { OrganizerDashboard } from "./components/OrganizerDashboard";
 import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { format, STRINGS, type Strings, type TextKey } from "./i18n";
@@ -25,6 +26,10 @@ const MAX_K = 20;
 const THEMES: Theme[] = ["light", "dark", "system"];
 // Открыты ли мы как Mini App внутри Telegram (иначе null).
 const TELEGRAM = readLaunch();
+
+type View = "participant" | "organizer";
+// Экран — в адресе (?view=organizer), чтобы дашборд открывался прямой ссылкой, например на проекторе.
+const initialView = (): View => (new URLSearchParams(window.location.search).get("view") === "organizer" ? "organizer" : "participant");
 
 // localStorage может быть недоступен (приватный режим): тогда просто не запоминаем.
 function load<T>(key: string, fallback: T): T {
@@ -93,7 +98,17 @@ export default function App() {
   const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>(initialView);
   const t = STRINGS[lang];
+
+  const changeView = (next: View) => {
+    setView(next);
+    const url = new URL(window.location.href);
+    if (next === "organizer") url.searchParams.set("view", "organizer");
+    else url.searchParams.delete("view");
+    window.history.replaceState(null, "", url);
+    window.scrollTo({ top: 0 });
+  };
 
   useEffect(() => {
     save("kopir.lang", lang);
@@ -206,14 +221,23 @@ export default function App() {
             <span className="brand__name">Kópir</span>
           </div>
           <div className="topbar__controls">
+            <div className="segmented segmented--nav" role="group" aria-label="Kópir">
+              <button type="button" aria-pressed={view === "participant"} onClick={() => changeView("participant")}>
+                <UserRound size={15} aria-hidden /> <span>{t.viewParticipant}</span>
+              </button>
+              <button type="button" aria-pressed={view === "organizer"} onClick={() => changeView("organizer")}>
+                <LayoutDashboard size={15} aria-hidden /> <span>{t.viewOrganizer}</span>
+              </button>
+            </div>
             <LangSwitch value={lang} onChange={changeLang} />
             <ThemeSwitch value={theme} onChange={setTheme} t={t} />
           </div>
         </div>
       </header>
 
-      <main className="container">
-        {!showResults && (
+      <main className={view === "organizer" ? "container container--wide" : "container"}>
+        {view === "organizer" && <OrganizerDashboard lang={lang} t={t} />}
+        {view === "participant" && !showResults && (
           <section className="hero">
             <h1>{t.tagline}</h1>
             <p className="hero__subtitle">{t.heroSubtitle}</p>
@@ -226,12 +250,12 @@ export default function App() {
           </section>
         )}
 
-        {!options && !error && (
+        {view === "participant" && !options && !error && (
           <p className="loading"><LoaderCircle size={18} className="spin" aria-hidden /></p>
         )}
-        {!options && error && <p className="alert alert--error" role="alert">{error}</p>}
+        {view === "participant" && !options && error && <p className="alert alert--error" role="alert">{error}</p>}
 
-        {options && !showResults && (
+        {view === "participant" && options && !showResults && (
           <ProfileForm
             draft={draft}
             onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
@@ -244,7 +268,7 @@ export default function App() {
           />
         )}
 
-        {options && showResults && (
+        {view === "participant" && options && showResults && (
           <section className="results" aria-busy={pending}>
             <button type="button" className="ghost-button ghost-button--back" onClick={() => setResults(null)}>
               <ArrowLeft size={16} aria-hidden /> {t.editProfile}
