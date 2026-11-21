@@ -4,6 +4,8 @@
 узнать»): ими участники обмениваются только после взаимного согласия.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from kopir.matching.feedback import Reason, Verdict
@@ -79,6 +81,19 @@ class ParseRequest(BaseModel):
     text: str = Field(max_length=2000)
 
 
+class SquadRequest(BaseModel):
+    profile: Profile
+    lang: Lang = "ru"
+
+
+class SquadOut(BaseModel):
+    kind: Literal["team", "circle"]
+    members: list["Candidate"]
+    cohesion: float = Field(description="худший взаимный балл в группе, 0..1")
+    skills: list[str]
+    domains: list[str]
+
+
 class Option(BaseModel):
     value: str
     label: str
@@ -137,3 +152,4 @@ class HealthResponse(BaseModel):
 
 # IntroView ссылается на Candidate, объявленный ниже.
 IntroView.model_rebuild()
+SquadOut.model_rebuild()

@@ -11,6 +11,7 @@ import {
   type ProfileInput,
   type Reason,
   type Recommendation,
+  type Squad,
 } from "./api";
 import { Beacon } from "./components/Beacon";
 import { LangSwitch, ThemeSwitch, type Theme } from "./components/Controls";
@@ -18,6 +19,7 @@ import { ShanyraqMark } from "./components/Logo";
 import { OrganizerDashboard } from "./components/OrganizerDashboard";
 import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
+import { SquadCard } from "./components/SquadCard";
 import { format, STRINGS, type Strings, type TextKey } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
 import { announceReady, displayName, langOf, readLaunch } from "./telegram";
@@ -106,6 +108,7 @@ export default function App() {
   const [intros, setIntros] = useState<IntroView[]>([]);
   const [beacon, setBeacon] = useState<IntroView | null>(null);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [squad, setSquad] = useState<Squad | null>(null);
   const joining = useRef<Promise<string> | null>(null);
   const t = STRINGS[lang];
 
@@ -180,6 +183,15 @@ export default function App() {
     }, lang);
   };
 
+  /** «Позвать всех»: запрос на знакомство каждому участнику группы (то же двойное согласие). */
+  const inviteSquad = () => {
+    if (!results || !squad) return;
+    void guarded(async () => {
+      const me = await ensureJoined(results.profile);
+      for (const m of squad.members) upsertIntro(await api.intro(me, m.id, lang));
+    }, lang);
+  };
+
   const answer = (intro: IntroView, accept: boolean) => {
     if (!profileId) return;
     void guarded(async () => {
@@ -242,6 +254,9 @@ export default function App() {
     joining.current = null;
     setPending(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    setSquad(null);
+    // Группа — дополнение к подборке: её ошибка не мешает основному ответу.
+    api.squad(profile, lang).then(setSquad, () => setSquad(null));
     void guarded(async () => {
       const res = await request(profile, lang, [], PAGE);
       setResults({
@@ -386,6 +401,7 @@ export default function App() {
                 ))}
               </div>
             )}
+            {squad && !pending && <SquadCard squad={squad} t={t} intros={intros} busy={busy} onInvite={inviteSquad} />}
             <div className="results__list">
               {pending
                 ? Array.from({ length: PAGE }, (_, i) => <ResultSkeleton key={i} />)

@@ -520,6 +520,29 @@ textarea { resize: vertical; line-height: 1.5; }
 .incoming > span { flex: 1; min-width: 180px; font-size: 0.9rem; }
 .incoming .ghost-button { margin: 0; }
 
+/* --- мини-группа --- */
+.squad {
+  margin-top: 20px; padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--accent-ring);
+  background: linear-gradient(160deg, var(--accent-soft), transparent 60%), var(--surface); box-shadow: var(--shadow-md);
+  animation: rise 0.35s ease both;
+}
+.squad__head { display: flex; gap: 12px; align-items: flex-start; }
+.squad__head h2 { margin: 0; font-size: 1.05rem; font-weight: 750; }
+.squad__head p { margin: 3px 0 0; font-size: 0.88rem; color: var(--text-2); }
+.squad__icon { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 12px;
+  color: #fff; background: linear-gradient(135deg, var(--accent-from), var(--accent-to)); }
+.squad__members { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 16px 0 0; padding: 0; list-style: none; }
+.squad__members li { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--border); }
+.squad__members .avatar { width: 38px; height: 38px; border-radius: 11px; font-size: 0.82rem; }
+.squad__who { display: grid; min-width: 0; flex: 1; }
+.squad__who b { font-size: 0.9rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.squad__who small { font-size: 0.76rem; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.squad__ok { color: var(--accent-strong); flex: none; }
+.squad__wait { color: var(--text-3); flex: none; }
+.squad__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.squad__common { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--text-2); }
+
 /* --- маячок: весь экран одним цветом, код видно через зал --- */
 .beacon {
   position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;

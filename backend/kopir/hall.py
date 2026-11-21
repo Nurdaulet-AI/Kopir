@@ -12,6 +12,7 @@ from collections import Counter
 from collections.abc import Collection
 from pathlib import Path
 
+from kopir.squads import Squad, squad
 from kopir.data.generator import generate
 from kopir.matching.engine import Match, Matcher
 from kopir.matching.feedback import Factors
@@ -79,6 +80,10 @@ class Hall:
             self._matcher.profiles.append(profile)
             self._count_skills(profile)
             self._joined.add(profile.id)
+
+    def squad(self, me: Profile) -> Squad | None:
+        with self._lock:
+            return squad(me, self._matcher)
 
     def recommend(
         self, me: Profile, k: int = 5, exclude: Collection[str] = (), factors: Factors | None = None

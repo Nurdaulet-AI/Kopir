@@ -1,6 +1,6 @@
 import { ArrowLeftRight, Check, Clock, Copy, Handshake, MapPin, MessageCircle, Radio, Send, ThumbsDown, TriangleAlert, UserRound } from "lucide-react";
 import { useId, useState, type CSSProperties } from "react";
-import { beaconInk } from "./ink";
+import { beaconInk, hue, initials } from "./ink";
 import type { IntroView, Reason, Recommendation } from "../api";
 import type { Strings, TextKey } from "../i18n";
 
@@ -35,22 +35,6 @@ function ScoreRing({ score, label }: { score: number; label: string }) {
       </span>
     </div>
   );
-}
-
-// Аватары — в холодной гамме бренда (бирюза → синий → фиолетовый): тёплые
-// оттенки вроде красного читаются как ошибка.
-const HUE_FROM = 175;
-const HUE_SPAN = 105;
-
-/** Стабильный оттенок аватара из имени: у человека всегда один цвет. */
-function hue(name: string): number {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % HUE_SPAN;
-  return HUE_FROM + h;
-}
-
-function initials(name: string): string {
-  return name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
 interface Props {

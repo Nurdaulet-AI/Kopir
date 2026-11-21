@@ -97,3 +97,78 @@ class TestApi:
     def test_dashboard_has_schedule(self, client):
         body = client.get("/api/dashboard").json()
         assert len(body["slots"]) == 4 and body["slots"][0]["meetings"] and 0 < body["scheduled"] <= 1
+
+
+# --- мини-группы ---
+
+from kopir.matching.engine import Matcher  # noqa: E402
+from kopir.squads import squad  # noqa: E402
+
+# Абсолютная гарантия продукта, а не константа модуля: в группе нет бесполезных пар.
+GROUP_FLOOR = 0.3
+
+
+def _hall_profiles():
+    return generate(n=300, seed=42)
+
+
+def test_team_every_pair_is_mutually_useful_and_cofounder_roles_differ():
+    profiles = _hall_profiles()
+    matcher = Matcher(profiles)
+    founders = [p for p in profiles if p.goal is Goal.FIND_COFOUNDER][:10]
+    built = 0
+    for me in founders:
+        s = squad(me, matcher)
+        if s is None:
+            continue
+        built += 1
+        assert s.kind == "team" and 2 <= len(s.members) <= 3
+        group = [me, *s.members]
+        assert len({p.role for p in group}) == len(group)  # роли не повторяются
+        for i, a in enumerate(group):
+            for b in group[i + 1:]:
+                assert matcher.pair(a, b) >= GROUP_FLOOR - 1e-9
+    assert built >= 5
+
+
+def test_circle_has_one_mentor_and_mentees_of_that_mentor():
+    profiles = _hall_profiles()
+    matcher = Matcher(profiles)
+    me = next(p for p in profiles if p.goal is Goal.FIND_MENTOR)
+    s = squad(me, matcher)
+    assert s is not None and s.kind == "circle"
+    mentor, *others = s.members
+    assert mentor.goal is Goal.BE_MENTOR
+    assert all(o.goal is Goal.FIND_MENTOR and o.id != me.id for o in others)
+    assert all(matcher.pair(mentor, o) >= GROUP_FLOOR for o in [*others, me])
+
+
+def test_no_squads_for_jobs_market():
+    profiles = _hall_profiles()
+    matcher = Matcher(profiles)
+    for goal in (Goal.FIND_JOB, Goal.HIRE):
+        assert squad(next(p for p in profiles if p.goal is goal), matcher) is None
+
+
+def test_squad_api():
+    client = TestClient(create_app(Hall(generate(n=120, seed=4))))
+    me = make(goal=Goal.SHARE_EXPERIENCE, role="backend", stack=["Python", "SQL"])
+    r = client.post("/api/squad", json={"profile": me.model_dump(mode="json"), "lang": "kk"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["kind"] == "team" and len(body["members"]) >= 2
+    job = make(goal=Goal.FIND_JOB)
+    assert client.post("/api/squad", json={"profile": job.model_dump(mode="json")}).json() is None
+
+
+def test_squad_api_with_default_hall(monkeypatch, tmp_path):
+    """Как на сервере: зал из файла по $KOPIR_PROFILES, а не переданный в create_app."""
+    import json
+
+    path = tmp_path / "profiles.json"
+    path.write_text(json.dumps([p.model_dump(mode="json") for p in generate(n=120, seed=4)]), encoding="utf-8")
+    monkeypatch.setenv("KOPIR_PROFILES", str(path))
+    client = TestClient(create_app())
+    me = make(goal=Goal.SHARE_EXPERIENCE, role="backend", stack=["Python", "SQL"])
+    r = client.post("/api/squad", json={"profile": me.model_dump(mode="json")})
+    assert r.status_code == 200 and r.json()["kind"] == "team"

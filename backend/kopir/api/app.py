@@ -24,6 +24,8 @@ from kopir.api.schemas import (
     JoinRequest,
     JoinResponse,
     ParseRequest,
+    SquadOut,
+    SquadRequest,
     ExplanationOut,
     HealthResponse,
     Option,
@@ -158,6 +160,15 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
     def list_intros(profile_id: str, request: Request, lang: Lang = "ru") -> list[IntroView]:
         hall = get_hall(request)
         return [_intro_view(hall, i, profile_id, lang) for i in hall.introductions.of(profile_id)]
+
+    @app.post("/api/squad")
+    def build_squad(body: SquadRequest, request: Request) -> SquadOut | None:
+        """Мини-группа: команда, где каждый полезен каждому, или круг ментора. Нет группы — null."""
+        s = get_hall(request).squad(body.profile)
+        if s is None:
+            return None
+        return SquadOut(kind=s.kind, members=[_candidate(p, body.lang) for p in s.members], cohesion=round(s.cohesion, 3),
+                        skills=s.skills, domains=[DOMAIN_LABELS[d][body.lang] for d in s.domains])
 
     @app.post("/api/parse")
     def parse_profile_text(body: ParseRequest) -> dict:

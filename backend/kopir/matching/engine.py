@@ -108,6 +108,10 @@ class Matcher:
             score = (1 - SEMANTIC_WEIGHT) * score + SEMANTIC_WEIGHT * self.similarity(a, b)
         return u, score
 
+    def pair(self, a: Profile, b: Profile) -> float:
+        """Взаимный балл пары без личных весов — для групп и расписания."""
+        return mutual_score(self._directional(a, b)[1], self._directional(b, a)[1])
+
     def score_all(self, me: Profile, exclude: Collection[str] = (), factors: Factors | None = None) -> list[Match]:
         """Все взаимно полезные кандидаты, без ранжирования.
 
