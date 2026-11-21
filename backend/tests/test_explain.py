@@ -11,7 +11,7 @@ from kopir.matching.engine import Matcher
 from kopir.taxonomy import DOMAIN_LABELS, LANGS, Goal, Level
 
 EVAL = Path(__file__).resolve().parent.parent / "eval"
-ALLOWED_FIELDS = {"name", "role", "level", "years", "my_role", "opening", "detail", "items", "item"}
+ALLOWED_FIELDS = {"name", "role", "level", "years", "my_role", "opening", "detail", "items", "item", "company"}
 
 
 def _keys(tree: dict, prefix: str = "") -> set[str]:
@@ -21,9 +21,19 @@ def _keys(tree: dict, prefix: str = "") -> set[str]:
     return out
 
 
-def _leaves(tree: dict):
+def _templates(tree: dict):
+    """Все строки-шаблоны, включая тексты ступеней в лестницах первых фраз."""
     for v in tree.values():
-        yield from _leaves(v) if isinstance(v, dict) else [v]
+        if isinstance(v, dict):
+            yield from _templates(v)
+        elif isinstance(v, list):
+            yield from (step["text"] for step in v)
+        else:
+            yield v
+
+
+def _fields(template: str) -> set[str]:
+    return {name for _, name, _, _ in string.Formatter().parse(template) if name}
 
 
 def test_every_language_has_the_same_phrases():
@@ -34,9 +44,47 @@ def test_every_language_has_the_same_phrases():
 
 @pytest.mark.parametrize("lang", LANGS)
 def test_templates_use_only_known_fields(lang):
-    for template in _leaves(phrases(lang)):
-        fields = {name for _, name, _, _ in string.Formatter().parse(template) if name}
-        assert fields <= ALLOWED_FIELDS, template
+    for template in _templates(phrases(lang)):
+        assert _fields(template) <= ALLOWED_FIELDS, template
+
+
+class TestIcebreakerLadders:
+    def test_same_steps_in_every_language(self):
+        ladders = {lang: phrases(lang)["icebreaker"] for lang in LANGS}
+        for goal in Goal:
+            steps = {lang: [s["needs"] for s in ladders[lang][goal]] for lang in LANGS}
+            assert steps["ru"] == steps["kk"] == steps["en"], goal
+
+    @pytest.mark.parametrize("lang", LANGS)
+    def test_step_uses_exactly_what_it_needs_and_last_step_always_fits(self, lang):
+        for goal, ladder in phrases(lang)["icebreaker"].items():
+            for step in ladder:
+                assert _fields(step["text"]) == set(step["needs"]), (lang, goal, step["text"])
+            # «opening» есть у любой пары соискатель–нанимающий, поэтому последней ступени хватает.
+            assert set(ladder[-1]["needs"]) <= {"opening"}, (lang, goal)
+
+    seeker = make(Goal.FIND_JOB, stack=["Python", "FastAPI"], target={"roles": ["backend"]})
+
+    def _icebreaker(self, hirer, rarity=None):
+        match = Matcher([hirer]).recommend(self.seeker, record=False)[0]
+        return explain(self.seeker, match, "ru", rarity=rarity).icebreaker
+
+    def test_most_specific_step_is_chosen(self):
+        hirer = make(Goal.HIRE, company="Dalafy", target={"roles": ["backend"], "skills": ["Python", "FastAPI"]})
+        text = self._icebreaker(hirer, rarity={"Python": 90, "FastAPI": 12}.get)
+        assert "Dalafy" in text and "FastAPI" in text and "Python" not in text
+
+    def test_falls_back_when_company_is_unknown(self):
+        hirer = make(Goal.HIRE, target={"roles": ["backend"], "skills": ["Python"], "level": "middle"})
+        assert self._icebreaker(hirer) == ("Здравствуйте! Меня заинтересовала вакансия «Middle Backend-разработчик». "
+                                           "Расскажете о команде?")
+
+    def test_mentee_asks_about_the_mentors_strong_topic(self):
+        mentee = make(Goal.FIND_MENTOR, years=1, target={"skills": ["Kafka"]})
+        mentor = make(Goal.BE_MENTOR, years=8, stack=["Kafka"])
+        match = Matcher([mentor]).recommend(mentee, record=False)[0]
+        assert explain(mentee, match, "ru").icebreaker == (
+            "Здравствуйте! Сейчас разбираюсь с Kafka — можно задать вам пару вопросов о вашем опыте?")
 
 
 @pytest.fixture(scope="module")

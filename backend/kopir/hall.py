@@ -8,6 +8,7 @@
 import json
 import os
 import threading
+from collections import Counter
 from collections.abc import Collection
 from pathlib import Path
 
@@ -28,6 +29,16 @@ class Hall:
         self._lock = threading.Lock()
         self._by_id = {p.id: p for p in profiles}
         self._matcher = Matcher(list(profiles))
+        self._skills: Counter[str] = Counter()
+        for p in profiles:
+            self._count_skills(p)
+
+    def _count_skills(self, p: Profile) -> None:
+        self._skills.update(set(p.stack + p.target.skills + [s for o in p.openings for s in o.skills]))
+
+    def skill_count(self, skill: str) -> int:
+        """Сколько участников зала упоминают навык (свой стек, темы или вакансии)."""
+        return self._skills[skill]
 
     @classmethod
     def from_file(cls, path: Path) -> "Hall":
@@ -53,6 +64,7 @@ class Hall:
                 raise ValueError(f"анкета {profile.id} уже в зале")
             self._by_id[profile.id] = profile
             self._matcher.profiles.append(profile)
+            self._count_skills(profile)
 
     def recommend(self, me: Profile, k: int = 5, exclude: Collection[str] = ()) -> list[Match]:
         with self._lock:

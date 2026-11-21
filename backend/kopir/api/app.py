@@ -46,12 +46,12 @@ def _candidate(p: Profile, lang: Lang) -> Candidate:
     )
 
 
-def _recommendation(me: Profile, m: Match, lang: Lang) -> Recommendation:
+def _recommendation(me: Profile, m: Match, lang: Lang, hall: Hall) -> Recommendation:
     return Recommendation(
         candidate=_candidate(m.profile, lang),
         score=round(m.score * 100),
         weak=m.weak,
-        explanation=ExplanationOut(**asdict(explain(me, m, lang))),
+        explanation=ExplanationOut(**asdict(explain(me, m, lang, rarity=hall.skill_count))),
     )
 
 
@@ -98,7 +98,7 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
         return RecommendResponse(
             profile_id=me.id,
             lang=lang,
-            recommendations=[_recommendation(me, m, lang) for m in matches],
+            recommendations=[_recommendation(me, m, lang, hall) for m in matches],
             elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
         )
 

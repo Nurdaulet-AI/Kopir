@@ -7,6 +7,7 @@
 """
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import cache
 from importlib.resources import files
@@ -30,6 +31,9 @@ DETAIL_PRIORITY: dict[Goal, tuple[str, ...]] = {
 CHIP_KINDS = ("stack", "topics", "domain")
 # Сколько элементов перечислять в одной фразе, чтобы она оставалась короткой.
 MAX_ITEMS = 3
+
+# Сколько участников зала владеют навыком: чем меньше, тем навык характернее.
+Rarity = Callable[[str], int]
 
 
 @dataclass(frozen=True)
@@ -81,12 +85,19 @@ def _detail(u: Utility, goal: Goal, lang: Lang) -> str:
     return ""
 
 
-def _first_item(u: Utility, lang: Lang, fallback: str) -> str:
+def _distinctive_item(u: Utility, lang: Lang, rarity: Rarity | None) -> str:
+    """Самое редкое в зале общее совпадение: оно точнее всего показывает, что анкету прочитали.
+
+    Навыки и темы сравниваются по редкости; если их нет — первая общая сфера; иначе пусто.
+    """
     for kind in CHIP_KINDS:
         fact = _matched(u, kind)
-        if fact is not None:
+        if fact is None:
+            continue
+        if kind == "domain" or rarity is None:
             return _labels(fact, lang)[0]
-    return fallback
+        return min(fact.value, key=rarity)
+    return ""
 
 
 def _sentence(template: str, context: dict[str, str]) -> str:
@@ -94,8 +105,20 @@ def _sentence(template: str, context: dict[str, str]) -> str:
     return text[0].upper() + text[1:]
 
 
-def explain(me: Profile, match: Match, lang: Lang | None = None) -> Explanation:
-    """Объяснение для `me`, почему стоит познакомиться с `match.profile`."""
+def _icebreaker(ladder: list[dict], context: dict[str, str]) -> str:
+    """Самая конкретная фраза, для которой есть все нужные факты."""
+    for step in ladder:
+        if all(context.get(need) for need in step["needs"]):
+            return _sentence(step["text"], context)
+    raise LookupError("в лестнице первых фраз нет ступени без условий")
+
+
+def explain(me: Profile, match: Match, lang: Lang | None = None, rarity: Rarity | None = None) -> Explanation:
+    """Объяснение для `me`, почему стоит познакомиться с `match.profile`.
+
+    `rarity(skill)` — сколько людей в зале владеют навыком; с ней первая фраза
+    упоминает самый редкий общий навык.
+    """
     lang = lang or me.lang
     other = match.profile
     p = phrases(lang)
@@ -129,9 +152,12 @@ def explain(me: Profile, match: Match, lang: Lang | None = None) -> Explanation:
               if f.role == "requirement" and f.score == 0}
     warnings = [p["warning"][kind] for kind in p["warning"] if kind in missed]
 
-    icebreaker = _sentence(p["icebreaker"][me.goal], {
+    # Компания в первой фразе — того, кто нанимает: собеседника или самого пользователя.
+    company = other.company if me.goal == Goal.FIND_JOB else me.company if me.goal == Goal.HIRE else None
+    icebreaker = _icebreaker(p["icebreaker"][me.goal], {
         "opening": _opening(match.for_me, lang),
-        "item": _first_item(match.for_me, lang, fallback=base["role"]),
+        "item": _distinctive_item(match.for_me, lang, rarity),
+        "company": company or "",
     })
     return Explanation(
         for_me=for_me,

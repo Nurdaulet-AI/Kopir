@@ -29,11 +29,99 @@
     "common_craft": "no shared stack"
   },
   "icebreaker": {
-    "find_job": "Hi! I'm interested in your “{opening}” opening. Could you tell me about the team?",
-    "hire": "Hi! We have an open “{opening}” position — shall we meet?",
-    "find_mentor": "Hi! Could I ask you a couple of questions about {item}? I want to grow in it.",
-    "be_mentor": "Hi! I see you're into {item} — happy to share my experience.",
-    "find_cofounder": "Hi! I'm also thinking about a startup ({item}). Shall we discuss ideas?",
-    "share_experience": "Hi! We both work with {item} — how is it set up on your side?"
+    "find_job": [
+      {
+        "needs": [
+          "company",
+          "item",
+          "opening"
+        ],
+        "text": "Hi! I see {company} needs {item} — that's exactly what I work with. Could you tell me about the “{opening}” role?"
+      },
+      {
+        "needs": [
+          "company",
+          "opening"
+        ],
+        "text": "Hi! I'm interested in the “{opening}” role at {company}. Could you tell me about the team?"
+      },
+      {
+        "needs": [
+          "opening"
+        ],
+        "text": "Hi! I'm interested in your “{opening}” opening. Could you tell me about the team?"
+      }
+    ],
+    "hire": [
+      {
+        "needs": [
+          "company",
+          "item",
+          "opening"
+        ],
+        "text": "Hi! At {company} we're looking for someone with {item} for the “{opening}” role — looks like that's you. Shall we meet?"
+      },
+      {
+        "needs": [
+          "company",
+          "opening"
+        ],
+        "text": "Hi! We have an open “{opening}” position at {company} — shall we meet?"
+      },
+      {
+        "needs": [
+          "opening"
+        ],
+        "text": "Hi! We have an open “{opening}” position — shall we meet?"
+      }
+    ],
+    "find_mentor": [
+      {
+        "needs": [
+          "item"
+        ],
+        "text": "Hi! I'm currently digging into {item} — could I ask you a couple of questions about your experience?"
+      },
+      {
+        "needs": [],
+        "text": "Hi! Could I ask you a couple of questions about your experience?"
+      }
+    ],
+    "be_mentor": [
+      {
+        "needs": [
+          "item"
+        ],
+        "text": "Hi! If you want to get into {item}, I'm happy to share my experience — shall we meet?"
+      },
+      {
+        "needs": [],
+        "text": "Hi! Happy to share my experience — shall we meet?"
+      }
+    ],
+    "find_cofounder": [
+      {
+        "needs": [
+          "item"
+        ],
+        "text": "Hi! I'm also thinking about a startup ({item}). Shall we discuss ideas?"
+      },
+      {
+        "needs": [],
+        "text": "Hi! I'm also thinking about my own startup. Shall we discuss ideas?"
+      }
+    ],
+    "share_experience": [
+      {
+        "needs": [
+          "item"
+        ],
+        "text": "Hi! We both work with {item} — how is it set up on your side?"
+      },
+      {
+        "needs": [],
+        "text": "Hi! Shall we swap experience? What are you working on these days?"
+      }
+    ]
   }
 }
