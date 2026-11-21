@@ -28,6 +28,13 @@ class TestJob:
         assert not is_suitable(self.seeker, frontend)
         assert not is_suitable(self.seeker, lead)
 
+    def test_any_fitting_opening_is_enough(self):
+        hirer = make(Goal.HIRE, openings=[
+            {"roles": ["designer"], "skills": ["Figma"]},
+            {"roles": ["backend"], "skills": ["Python"], "level": "junior"},
+        ])
+        assert is_suitable(self.seeker, hirer) and is_suitable(hirer, self.seeker)
+
     def test_another_seeker_is_never_suitable(self):
         assert not is_suitable(self.seeker, make(Goal.FIND_JOB, stack=["Python"]))
 

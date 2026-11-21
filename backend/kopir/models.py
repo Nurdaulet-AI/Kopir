@@ -2,12 +2,15 @@
 
 Анкета состоит из двух частей:
 - «кто я» — роль, уровень, опыт, стек, интересы;
-- `target` — «кого/что ищу». Его смысл задаёт цель:
-  нанимающий описывает вакансию, ищущий ментора — темы, кофаундер — нужные роли.
+- «кого/что ищу». Его смысл задаёт цель: ищущий ментора называет темы,
+  кофаундер — нужные роли (`target`). Нанимающий перечисляет открытые
+  вакансии (`openings`): на митап компании обычно приходят с несколькими.
 Из этих двух частей подбор считает, полезен ли человек B человеку A и наоборот.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from typing import Self
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from kopir.taxonomy import DOMAINS, ROLES, Goal, Level, normalize_skills
 
@@ -52,6 +55,7 @@ class Profile(BaseModel):
 
     goal: Goal
     target: Target = Field(default_factory=Target)
+    openings: list[Target] = Field(default_factory=list)  # вакансии нанимающего
     company: str | None = None  # для нанимающих: вымышленное название компании
     looks_like: str | None = None  # «как меня узнать в зале»
 
@@ -71,3 +75,21 @@ class Profile(BaseModel):
     @classmethod
     def _known_interests(cls, v: list[str]) -> list[str]:
         return [d for d in v if d in DOMAINS]
+
+    @model_validator(mode="after")
+    def _openings_belong_to_hirers(self) -> Self:
+        """У нанимающего есть хотя бы одна вакансия; у остальных вакансий нет.
+
+        Короткая форма с одной вакансией в `target` переносится в `openings`,
+        чтобы дальше по коду у нанимающего был один источник правды.
+        """
+        if self.goal != Goal.HIRE:
+            if self.openings:
+                raise ValueError("вакансии бывают только у нанимающих")
+            return self
+        if not self.openings and self.target.roles:
+            self.openings = [self.target]
+            self.target = Target()
+        if not self.openings or not all(o.roles for o in self.openings):
+            raise ValueError("у нанимающего должна быть хотя бы одна вакансия с ролью")
+        return self

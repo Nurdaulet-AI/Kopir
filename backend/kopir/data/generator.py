@@ -12,7 +12,7 @@
 """
 
 import random
-from collections import Counter
+from collections import Counter, deque
 from typing import NamedTuple
 
 from kopir.data.texts import about_text
@@ -141,6 +141,8 @@ COFOUNDER_BIZ: dict[str, float] = {"business": 0.45, "product": 0.30, "designer"
 BIZ_WANTS_ANY_TECH = 0.6
 # Вакансий на каждую роль, которую ищет хотя бы один соискатель.
 MIN_VACANCIES_PER_ROLE = 2
+# Сколько вакансий приносит на митап одна компания.
+OPENINGS_PER_HIRER: dict[int, float] = {1: 0.4, 2: 0.4, 3: 0.2}
 
 # (кириллица, латиница для вымышленного @handle)
 FIRST_NAMES: tuple[tuple[str, str], ...] = (
@@ -222,7 +224,8 @@ class Generator:
     def _interests(self, k_max: int = 3, weights: dict[str, float] = ALL_DOMAINS) -> list[str]:
         return self._sample(weights, self.rng.randint(1, k_max))
 
-    def _add(self, *, role: str, level: Level, goal: Goal, target: Target, stack: list[str] | None = None,
+    def _add(self, *, role: str, level: Level, goal: Goal, target: Target | None = None,
+             openings: list[Target] | None = None, stack: list[str] | None = None,
              interests: list[str] | None = None, company: str | None = None) -> Profile:
         idx = len(self.profiles) + 1
         first, latin = self.rng.choice(FIRST_NAMES)
@@ -239,7 +242,8 @@ class Generator:
             stack=stack if stack is not None else self._stack(self._family(role)),
             interests=interests if interests is not None else self._interests(),
             goal=goal,
-            target=target,
+            target=target or Target(),
+            openings=openings or [],
             company=company,
             looks_like=self.rng.choice(LOOKS_LIKE[lang]),
         )
@@ -266,8 +270,8 @@ class Generator:
         i = order.index(wanted) + self.rng.choice((-1, 1))
         return order[max(0, min(i, len(order) - 1))]
 
-    def _hirers(self, count: int) -> None:
-        """Каждая вакансия списана с реального соискателя в зале: роль, стек, уровень.
+    def _vacancy_plan(self, total: int) -> deque[Demand]:
+        """Какие вакансии будут в зале: каждая списана с реального соискателя.
 
         Сначала каждая роль соискателей получает MIN_VACANCIES_PER_ROLE вакансий
         (от самых востребованных ролей к редким), остальные — пропорционально спросу.
@@ -277,15 +281,53 @@ class Generator:
             self.rng.choice([d for d in self.demand if d.role == role])
             for role, _ in by_role.most_common()
             for _ in range(MIN_VACANCIES_PER_ROLE)
-        ][:count]
-        plan += [self.rng.choice(self.demand) for _ in range(count - len(plan))]
+        ][:total]
+        plan += [self.rng.choice(self.demand) for _ in range(total - len(plan))]
+        self.rng.shuffle(plan)
+        return deque(plan)
+
+    @staticmethod
+    def _opening_key(d: Demand) -> tuple[str, tuple[str, ...]]:
+        return d.role, d.family.core
+
+    def _split_by_company(self, plan: deque[Demand], sizes: list[int]) -> list[list[Demand]]:
+        """Раздаёт вакансии компаниям так, чтобы у одной компании не было двух одинаковых.
+
+        Дубль откладывается следующей компании. Если в конце остались отложенные,
+        они уходят в любую компанию, где такой вакансии ещё нет, — так гарантия
+        минимума вакансий на роль не теряется.
+        """
+        companies: list[list[Demand]] = []
+        for size in sizes:
+            batch, seen, deferred = [], set(), []
+            while plan and len(batch) < size:
+                d = plan.popleft()
+                if self._opening_key(d) in seen:
+                    deferred.append(d)
+                    continue
+                seen.add(self._opening_key(d))
+                batch.append(d)
+            plan.extendleft(reversed(deferred))
+            companies.append(batch)
         for d in plan:
-            domain = self.rng.choice(d.interests) if self.rng.random() < 0.5 else self._pick(HOT_DOMAINS)
-            who = self.rng.choice(("recruiter", "recruiter", d.role, "business"))
+            free = [c for c in companies if self._opening_key(d) not in map(self._opening_key, c)]
+            min(free or companies, key=len).append(d)
+        return companies
+
+    def _hirers(self, count: int) -> None:
+        """Компании приносят 1–3 вакансии; роль, стек и уровень вакансий — из спроса зала."""
+        sizes = [self._pick(OPENINGS_PER_HIRER) for _ in range(count)]
+        for batch in self._split_by_company(self._vacancy_plan(sum(sizes)), sizes):
+            first = batch[0]
+            domain = self.rng.choice(first.interests) if self.rng.random() < 0.5 else self._pick(HOT_DOMAINS)
+            hiring_roles = ["recruiter", "recruiter", "business"]
+            if len(batch) == 1:
+                hiring_roles.append(first.role)  # техлид, который нанимает в свою команду
+            who = self.rng.choice(hiring_roles)
+            openings = [Target(roles=[d.role], skills=list(d.family.core),
+                               level=self._vacancy_level(d.level), domains=[domain]) for d in batch]
             self._add(role=who, level=self.rng.choice((Level.SENIOR, Level.LEAD)), goal=Goal.HIRE,
-                      target=Target(roles=[d.role], skills=list(d.family.core),
-                                    level=self._vacancy_level(d.level), domains=[domain]),
-                      interests=[domain], company=self.rng.choice(COMPANIES))
+                      openings=openings, interests=[domain], company=self.rng.choice(COMPANIES))
 
     def _mentors(self, count: int) -> None:
         for _ in range(count):

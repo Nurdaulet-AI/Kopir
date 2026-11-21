@@ -1,7 +1,7 @@
 from collections import Counter
 
-from kopir.data.generator import DEFAULT_SIZE, GOAL_SHARE, MIN_VACANCIES_PER_ROLE, generate
-from kopir.taxonomy import TECH_ROLES, Goal
+from kopir.data.generator import DEFAULT_SIZE, GOAL_SHARE, MIN_VACANCIES_PER_ROLE, OPENINGS_PER_HIRER, generate
+from kopir.taxonomy import ROLE_LABELS, TECH_ROLES, Goal
 
 
 def test_generation_is_deterministic():
@@ -16,8 +16,12 @@ def test_size_quotas_and_unique_ids(dataset):
         assert abs(counts[goal] - DEFAULT_SIZE * share) <= 1
 
 
+def _hirers(dataset):
+    return [p for p in dataset if p.goal == Goal.HIRE]
+
+
 def test_every_seeker_role_has_enough_vacancies(dataset):
-    vacancies = Counter(r for p in dataset if p.goal == Goal.HIRE for r in p.target.roles)
+    vacancies = Counter(o.roles[0] for p in _hirers(dataset) for o in p.openings)
     for role in {p.role for p in dataset if p.goal == Goal.FIND_JOB}:
         assert vacancies[role] >= MIN_VACANCIES_PER_ROLE, role
 
@@ -25,8 +29,25 @@ def test_every_seeker_role_has_enough_vacancies(dataset):
 def test_every_vacancy_matches_some_seeker_stack(dataset):
     """Вакансии списаны со спроса зала: требования вакансии есть у кого-то из соискателей."""
     seekers = [p for p in dataset if p.goal == Goal.FIND_JOB]
-    for hirer in (p for p in dataset if p.goal == Goal.HIRE):
-        assert any(set(hirer.target.skills) <= set(s.stack) for s in seekers), hirer.id
+    for hirer in _hirers(dataset):
+        for opening in hirer.openings:
+            assert any(set(opening.skills) <= set(s.stack) for s in seekers), hirer.id
+
+
+def test_companies_bring_several_distinct_openings(dataset):
+    sizes = [len(p.openings) for p in _hirers(dataset)]
+    assert min(sizes) >= 1
+    assert max(sizes) <= max(OPENINGS_PER_HIRER) + 1  # +1: досадка отложенного дубля
+    assert sum(sizes) / len(sizes) > 1.4
+    for p in _hirers(dataset):
+        keys = [(o.roles[0], tuple(o.skills)) for o in p.openings]
+        assert len(keys) == len(set(keys)), p.id
+
+
+def test_hirer_texts_mention_every_opening(dataset):
+    for p in _hirers(dataset):
+        for o in p.openings:
+            assert ROLE_LABELS[o.roles[0]][p.lang] in p.about, p.id
 
 
 def test_every_mentee_topic_is_covered_by_some_mentor(dataset):

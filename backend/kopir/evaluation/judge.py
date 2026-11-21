@@ -7,7 +7,7 @@
 если знакомство очевидно осмысленно для обеих сторон.
 """
 
-from kopir.models import Profile
+from kopir.models import Profile, Target
 from kopir.taxonomy import LEVEL_ORDER, SOFT_SKILLS, TECH_ROLES, Goal, Level
 
 MIN_MENTOR_GAP_YEARS = 1.5
@@ -25,14 +25,18 @@ def _domains(p: Profile) -> set[str]:
     return set(p.target.domains or p.interests)
 
 
-def _job_fits(seeker: Profile, hirer: Profile) -> bool:
-    wanted = set(seeker.target.roles or [seeker.role])
-    if not wanted & set(hirer.target.roles):
+def _opening_fits(seeker: Profile, opening: Target) -> bool:
+    if not set(seeker.target.roles or [seeker.role]) & set(opening.roles):
         return False
-    required = _hard(hirer.target.skills)
+    required = _hard(opening.skills)
     if required and len(required & set(seeker.stack)) * 2 < len(required):
         return False
-    return _levels_close(hirer.target.level, seeker.level)
+    return _levels_close(opening.level, seeker.level)
+
+
+def _job_fits(seeker: Profile, hirer: Profile) -> bool:
+    """Подходит, если соискателю подходит хотя бы одна из вакансий."""
+    return any(_opening_fits(seeker, o) for o in hirer.openings)
 
 
 def _mentoring_fits(mentor: Profile, mentee: Profile) -> bool:

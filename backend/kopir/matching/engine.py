@@ -75,9 +75,9 @@ def _jaccard(a: Collection[str], b: Collection[str]) -> float:
 
 
 def _offer(p: Profile) -> tuple[list[str], list[str]]:
-    """Что человек предлагает: у нанимающего это вакансия, у остальных — он сам."""
+    """Что человек предлагает: у нанимающего это его вакансии, у остальных — он сам."""
     if p.goal == Goal.HIRE:
-        return p.target.roles, p.target.skills
+        return [r for o in p.openings for r in o.roles], [s for o in p.openings for s in o.skills]
     return [p.role], p.stack
 
 

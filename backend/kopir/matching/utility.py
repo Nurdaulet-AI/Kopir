@@ -18,8 +18,9 @@
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from typing import Literal
 
-from kopir.models import Profile
+from kopir.models import Profile, Target
 from kopir.taxonomy import COMPATIBLE, LEVEL_ORDER, SOFT_SKILLS, TECH_ROLES, Goal, Level
 
 # Значение критерия, когда сравнивать не с чем (например, нанимающий не указал уровень).
@@ -33,18 +34,23 @@ MIN_MENTOR_GAP_YEARS = 1.5
 GOOD_MENTOR_GAP_YEARS = 3.0
 
 
+FactRole = Literal["criterion", "requirement", "note"]
+
+
 @dataclass(frozen=True)
 class Fact:
-    """Одна причина полезности. `weight == 0` у требований: они влияют через множитель."""
+    """Одна причина полезности.
+
+    - `criterion` — взвешенный критерий, вкладывает `score × weight`;
+    - `requirement` — обязательное условие, при невыполнении умножает итог на `REQUIREMENT_MISS`;
+    - `note` — сведение для объяснения (например, какая вакансия подошла), на балл не влияет.
+    """
 
     kind: str
     value: tuple[str, ...]
     score: float
-    weight: float
-
-    @property
-    def is_requirement(self) -> bool:
-        return self.weight == 0.0
+    weight: float = 0.0
+    role: FactRole = "criterion"
 
 
 @dataclass
@@ -54,15 +60,18 @@ class Utility:
 
     @property
     def score(self) -> float:
-        return self.gate * sum(f.score * f.weight for f in self.facts)
+        return self.gate * sum(f.score * f.weight for f in self.facts if f.role == "criterion")
 
     def add(self, kind: str, value: Iterable[str], score: float, weight: float) -> None:
         self.facts.append(Fact(kind, tuple(value), score, weight))
 
     def require(self, kind: str, value: Iterable[str], ok: bool) -> None:
-        self.facts.append(Fact(kind, tuple(value), 1.0 if ok else 0.0, 0.0))
+        self.facts.append(Fact(kind, tuple(value), 1.0 if ok else 0.0, role="requirement"))
         if not ok:
             self.gate *= REQUIREMENT_MISS
+
+    def note(self, kind: str, value: Iterable[str]) -> None:
+        self.facts.append(Fact(kind, tuple(value), 1.0, role="note"))
 
 
 def _common(a: Iterable[str], b: Iterable[str]) -> tuple[str, ...]:
@@ -118,39 +127,71 @@ def _expertise(p: Profile) -> list[str]:
     return list(dict.fromkeys(p.stack + p.target.skills))
 
 
+def _hard(skills: Iterable[str]) -> list[str]:
+    return [s for s in skills if s not in SOFT_SKILLS]
+
+
 def _mentoring(u: Utility, mentor: Profile, mentee: Profile) -> None:
-    """Общая часть для обеих сторон менторства."""
+    """Общая часть для обеих сторон менторства.
+
+    Требования: ментор заметно опытнее и закрывает хотя бы одну тему менти.
+    Если менти назвал технические темы, совпадение только по мягким («карьера») не засчитывается.
+    """
     gap = mentor.years - mentee.years
     u.require("experience_gap", (f"{gap:g}",), gap >= MIN_MENTOR_GAP_YEARS)
-    score, hit = _coverage(mentee.target.skills or mentee.stack, _expertise(mentor))
+    wanted = mentee.target.skills or mentee.stack
+    score, hit = _coverage(wanted, _expertise(mentor))
+    must_cover = _hard(wanted) or wanted
+    u.require("topic_covered", _common(must_cover, hit), bool(_common(must_cover, hit)))
     u.add("topics", hit, score, 0.60)
     u.add("experience_gap", (f"{gap:g}",), 1.0 if gap >= GOOD_MENTOR_GAP_YEARS else 0.6, 0.20)
 
 
+def _opening_label(opening: Target) -> tuple[str, ...]:
+    return (*opening.roles[:1], opening.level or "")
+
+
+def _best_opening(hirer: Profile, score_opening: Callable[[Target], Utility]) -> Utility:
+    """Полезность лучшей из вакансий нанимающего; выбранная вакансия попадает в факты."""
+    best_opening, best = max(
+        ((o, score_opening(o)) for o in hirer.openings), key=lambda pair: pair[1].score
+    )
+    best.note("opening", _opening_label(best_opening))
+    return best
+
+
 def _find_job(a: Profile, b: Profile) -> Utility:
-    """A ищет работу, B нанимает: подходит ли вакансия B под A."""
-    u = Utility()
-    roles = _common(a.target.roles or [a.role], b.target.roles)
-    u.require("role", roles or b.target.roles, bool(roles))
-    score, hit = _coverage(b.target.skills, a.stack)
-    u.add("stack", hit, score, 0.45)
-    u.add("level", [b.target.level or a.level], _level_fit(b.target.level, a.level), 0.30)
-    score, hit = _overlap(_wanted_domains(a), b.target.domains)
-    u.add("domain", hit, score, 0.25)
-    return u
+    """A ищет работу, B нанимает: подходит ли A хоть одна вакансия B."""
+
+    def score(opening: Target) -> Utility:
+        u = Utility()
+        roles = _common(a.target.roles or [a.role], opening.roles)
+        u.require("role", roles or opening.roles, bool(roles))
+        stack, hit = _coverage(opening.skills, a.stack)
+        u.add("stack", hit, stack, 0.45)
+        u.add("level", [opening.level or a.level], _level_fit(opening.level, a.level), 0.30)
+        domain, hit = _overlap(_wanted_domains(a), opening.domains)
+        u.add("domain", hit, domain, 0.25)
+        return u
+
+    return _best_opening(b, score)
 
 
 def _hire(a: Profile, b: Profile) -> Utility:
-    """A нанимает, B ищет работу: закрывает ли B вакансию A."""
-    u = Utility()
-    roles = _common([b.role, *b.target.roles], a.target.roles)
-    u.require("role", roles or [b.role], bool(roles))
-    score, hit = _coverage(a.target.skills, b.stack)
-    u.add("stack", hit, score, 0.55)
-    u.add("level", [b.level], _level_fit(a.target.level, b.level), 0.30)
-    score, hit = _overlap(a.target.domains, b.interests)
-    u.add("domain", hit, score, 0.15)
-    return u
+    """A нанимает, B ищет работу: закрывает ли B хоть одну вакансию A."""
+
+    def score(opening: Target) -> Utility:
+        u = Utility()
+        roles = _common([b.role, *b.target.roles], opening.roles)
+        u.require("role", roles or [b.role], bool(roles))
+        stack, hit = _coverage(opening.skills, b.stack)
+        u.add("stack", hit, stack, 0.55)
+        u.add("level", [b.level], _level_fit(opening.level, b.level), 0.30)
+        domain, hit = _overlap(opening.domains, b.interests)
+        u.add("domain", hit, domain, 0.15)
+        return u
+
+    return _best_opening(a, score)
 
 
 def _find_mentor(a: Profile, b: Profile) -> Utility:
@@ -193,8 +234,14 @@ def _find_cofounder(a: Profile, b: Profile) -> Utility:
 
 
 def _share_experience(a: Profile, b: Profile) -> Utility:
-    """Оба хотят обменяться опытом: есть ли общий технический язык и общие темы."""
+    """Оба хотят обменяться опытом: есть ли общий технический язык и общие темы.
+
+    Требование: хотя бы один общий профессиональный навык. Одна общая сфера
+    без общего ремесла — слабый повод для разговора.
+    """
     u = Utility()
+    common_craft = _common(_hard(_expertise(a)), _expertise(b))
+    u.require("common_craft", common_craft, bool(common_craft))
     score, hit = _overlap(_expertise(a), _expertise(b))
     u.add("stack", hit, score, 0.45)
     score, hit = _overlap(_wanted_domains(a), _wanted_domains(b))

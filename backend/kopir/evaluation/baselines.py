@@ -15,12 +15,13 @@ Recommender = Callable[[Profile, int], list[Profile]]
 
 
 def _features(p: Profile) -> set[str]:
+    wants = [p.target, *p.openings]
     return {
         f"goal:{p.goal}",
         f"role:{p.role}",
-        *(f"role:{r}" for r in p.target.roles),
-        *(f"skill:{s}" for s in p.stack + p.target.skills),
-        *(f"domain:{d}" for d in p.interests + p.target.domains),
+        *(f"role:{r}" for w in wants for r in w.roles),
+        *(f"skill:{s}" for s in p.stack + [s for w in wants for s in w.skills]),
+        *(f"domain:{d}" for d in p.interests + [d for w in wants for d in w.domains]),
     }
 
 
