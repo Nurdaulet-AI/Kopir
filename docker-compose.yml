@@ -6,9 +6,11 @@ services:
       - "8000:8000"
     restart: unless-stopped
 
-  # Telegram-бот из того же образа. Без TELEGRAM_BOT_TOKEN в .env спокойно
-  # завершается, не мешая сайту; при сбое перезапускается.
+  # Telegram-бот из того же образа (long polling) — только по запросу:
+  #   docker compose --profile bot up
+  # Не включайте его, если бот уже работает на Render в режиме webhook.
   bot:
+    profiles: ["bot"]
     image: kopir:latest
     pull_policy: never
     command: ["python", "-m", "kopir.bot"]
