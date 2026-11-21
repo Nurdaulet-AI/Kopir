@@ -9,7 +9,7 @@
 Участник заполняет анкету — и меньше чем за секунду получает 5 человек, которым он тоже нужен,<br>
 с объяснением с обеих сторон и готовой первой фразой. На русском, казахском и английском.
 
-[**Открыть демо**](https://kopir.onrender.com) · [**Telegram-бот @KopirAgent**](https://t.me/KopirAgent) · [Дашборд организатора](https://kopir.onrender.com/?view=organizer) · [API](https://kopir.onrender.com/docs)
+[**Открыть демо**](https://kopir.onrender.com) · [**Видео 1,5 мин**](docs/demo/kopir-demo.mp4) · [**Telegram-бот @KopirAgent**](https://t.me/KopirAgent) · [Дашборд организатора](https://kopir.onrender.com/?view=organizer) · [API](https://kopir.onrender.com/docs)
 
 <sub>Кейс Qazaq IT Community «AI-сервис умного нетворкинга» · трек AI for Digital Economy & Smart Business · AIHack 2026, METU</sub>
 
@@ -88,6 +88,9 @@ cd web && npm ci && npm run dev
 # Тесты и оценка качества
 cd backend && uv run pytest
 uv run python scripts/evaluate.py --label check --queries holdout
+
+# Демо-видео: запись интерфейса + озвучка (macOS say, ffmpeg)
+cd web && KOPIR_URL=http://localhost:8000 OUT=demo node scripts/demo-video.mjs
 
 # Telegram-бот локально (long polling): токен в .env, см. .env.example
 docker compose --profile bot up
