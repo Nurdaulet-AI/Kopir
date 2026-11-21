@@ -1,14 +1,18 @@
-"""HTTP API Kópir.
+"""HTTP API Kópir и раздача собранного веб-интерфейса.
 
     uv run uvicorn kopir.api.app:create_app --factory --port 8000
 
-Документация с примерами — на /docs.
+Документация с примерами — на /docs. Если задан `$KOPIR_WEB_DIR` (папка со
+сборкой web/dist), сервер отдаёт интерфейс с того же адреса.
 """
 
+import os
 import time
 from dataclasses import asdict
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
 
 from kopir.api.schemas import (
     Candidate,
@@ -51,7 +55,10 @@ def _recommendation(me: Profile, m: Match, lang: Lang) -> Recommendation:
     )
 
 
-def create_app(hall: Hall | None = None) -> FastAPI:
+WEB_DIR_ENV = "KOPIR_WEB_DIR"
+
+
+def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI:
     app = FastAPI(title="Kópir API", version="0.1.0",
                   description="Взаимный подбор знакомств для IT-мероприятий.")
     app.state.hall = hall or Hall.default()
@@ -94,5 +101,12 @@ def create_app(hall: Hall | None = None) -> FastAPI:
             recommendations=[_recommendation(me, m, lang) for m in matches],
             elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
         )
+
+    # Статика монтируется последней: маршруты /api/* уже зарегистрированы и имеют приоритет.
+    web_dir = web_dir or (Path(os.environ[WEB_DIR_ENV]) if WEB_DIR_ENV in os.environ else None)
+    if web_dir is not None:
+        if not (web_dir / "index.html").is_file():
+            raise RuntimeError(f"в {web_dir} нет index.html — соберите web: npm run build")
+        app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
 
     return app

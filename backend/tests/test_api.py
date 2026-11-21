@@ -101,3 +101,15 @@ def test_invalid_profiles_are_rejected(client, broken):
 def test_k_is_bounded(client):
     assert _recommend(client, k=0).status_code == 422
     assert _recommend(client, k=100).status_code == 422
+
+
+class TestWebUi:
+    def test_serves_index_and_keeps_api_routes(self, tmp_path):
+        (tmp_path / "index.html").write_text("<!doctype html><title>Kópir</title>", encoding="utf-8")
+        client = TestClient(create_app(Hall(generate(n=60, seed=1)), web_dir=tmp_path))
+        assert "Kópir" in client.get("/").text
+        assert client.get("/api/health").json()["status"] == "ok"
+
+    def test_missing_build_fails_loudly(self, tmp_path):
+        with pytest.raises(RuntimeError, match="npm run build"):
+            create_app(Hall(generate(n=60, seed=1)), web_dir=tmp_path)

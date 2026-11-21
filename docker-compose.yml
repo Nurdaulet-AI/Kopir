@@ -1,0 +1,7 @@
+services:
+  kopir:
+    build: .
+    image: kopir:latest
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
