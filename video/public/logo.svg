@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Kópir: шаңырақ — купол юрты как сеть связей; золотая точка — общее пространство.
+       Для вкладки линии толще, чем в шапке: на 16 px тонкая сетка сливается. -->
+  <style>
+    .line { stroke: #2cc5dd; }
+    @media (prefers-color-scheme: dark) { .line { stroke: #2cc5dd; } }
+  </style>
+  <defs><clipPath id="inside"><circle cx="24" cy="24" r="18"/></clipPath></defs>
+  <circle class="line" cx="24" cy="24" r="19.5" fill="none" stroke-width="4.6"/>
+  <g class="line" clip-path="url(#inside)" stroke-width="4" stroke-linecap="round">
+    <path d="M5 33 L33 5 M15 43 L43 15 M5 15 L33 43 M15 5 L43 33"/>
+  </g>
+  <circle cx="24" cy="24" r="4.4" fill="#f5b700"/>
+</svg>

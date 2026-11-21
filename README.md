@@ -89,8 +89,9 @@ cd web && npm ci && npm run dev
 cd backend && uv run pytest
 uv run python scripts/evaluate.py --label check --queries holdout
 
-# Демо-видео: запись интерфейса + озвучка (macOS say, ffmpeg)
-cd web && KOPIR_URL=http://localhost:8000 OUT=demo node scripts/demo-video.mjs
+# Демо-видео (моушн-дизайн, Remotion): клипы экрана → озвучка edge-tts → рендер
+cd web && KOPIR_URL=http://localhost:8000 OUT=../video/public/clips node scripts/clips.mjs
+cd ../video && npm ci && npm run render
 
 # Telegram-бот локально (long polling): токен в .env, см. .env.example
 docker compose --profile bot up
