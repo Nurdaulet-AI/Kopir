@@ -83,6 +83,18 @@ export function ProfileForm({ draft, onChange, onExample, onVoiceText, lang, not
               <Field label={t.city}>
                 {(_, id) => <input id={id} value={draft.city} onChange={(e) => onChange({ city: e.target.value })} />}
               </Field>
+              <Field label={t.telegramField}>
+                {(_, id) => (
+                  <input id={id} value={draft.telegram} placeholder="@username" autoComplete="off"
+                         onChange={(e) => onChange({ telegram: e.target.value })} />
+                )}
+              </Field>
+              <Field label={t.looksLike}>
+                {(_, id) => (
+                  <input id={id} value={draft.looksLike} placeholder={t.looksLikePlaceholder}
+                         onChange={(e) => onChange({ looksLike: e.target.value })} />
+                )}
+              </Field>
               <Field label={t.role}>
                 {(_, id) => (
                   <select id={id} value={draft.role} onChange={(e) => onChange({ role: e.target.value })}>

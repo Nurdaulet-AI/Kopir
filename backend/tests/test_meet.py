@@ -198,3 +198,42 @@ def test_squad_api_with_default_hall(monkeypatch, tmp_path):
     me = make(goal=Goal.SHARE_EXPERIENCE, role="backend", stack=["Python", "SQL"])
     r = client.post("/api/squad", json={"profile": me.model_dump(mode="json")})
     assert r.status_code == 200 and r.json()["kind"] == "team"
+
+
+class TestLiveHall:
+    @pytest.fixture
+    def client(self):
+        return TestClient(create_app(Hall(generate(n=60, seed=7))))
+
+    def _join(self, client, **extra):
+        profile = make(**extra).model_dump(mode="json")
+        return client.post("/api/profiles", json={"profile": profile}).json()["profile_id"]
+
+    def test_count_is_public_list_only_for_people_inside(self, client):
+        assert client.get("/api/live").json() == {"count": 0, "people": []}
+        a = self._join(client, name="Айгерим", goal=Goal.FIND_JOB, role="backend", stack=["Python"])
+        assert client.get("/api/live").json()["count"] == 1
+        assert client.get("/api/live", params={"profile_id": "p001"}).status_code == 404  # вымышленный — не в зале
+        assert client.get("/api/live", params={"profile_id": a}).json()["people"] == []
+
+    def test_live_people_see_each_other_and_reciprocal_match_first(self, client):
+        seeker = self._join(client, name="Айгерим", goal=Goal.FIND_JOB, role="backend", stack=["Python", "FastAPI"])
+        hirer = self._join(client, name="Данияр", goal=Goal.HIRE, role="backend", stack=["Python"],
+                           openings=[{"roles": ["backend"], "skills": ["Python"], "level": "junior"}])
+        peer = self._join(client, name="Ерлан", goal=Goal.FIND_JOB, role="frontend", stack=["React"])
+        people = client.get("/api/live", params={"profile_id": seeker}).json()["people"]
+        assert [p["candidate"]["name"] for p in people] == ["Данияр", "Ерлан"]
+        assert people[0]["match"]["score"] > 0 and people[1]["match"] is None
+        assert all(p["candidate"]["id"] not in (seeker,) for p in people)
+        assert peer and hirer
+
+    def test_live_double_opt_in_shares_one_beacon(self, client):
+        a = self._join(client, name="Айгерим", goal=Goal.FIND_JOB)
+        b = self._join(client, name="Данияр", goal=Goal.SHARE_EXPERIENCE)
+        sent = client.post("/api/intros", json={"from_id": a, "to_id": b}).json()
+        assert sent["status"] == "pending" and sent["contact"] is None
+        incoming = client.get("/api/intros", params={"profile_id": b}).json()[0]
+        assert incoming["direction"] == "incoming"
+        accepted = client.post(f"/api/intros/{incoming['id']}/respond", json={"profile_id": b, "accept": True}).json()
+        mine = client.get("/api/intros", params={"profile_id": a}).json()[0]
+        assert accepted["beacon"] == mine["beacon"] and mine["contact"] is not None

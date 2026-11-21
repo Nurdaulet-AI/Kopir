@@ -26,6 +26,8 @@ export interface Draft {
   cofounderRoles: string[];
   company: string;
   openings: OpeningDraft[];
+  telegram: string;
+  looksLike: string;
 }
 
 export const EMPTY_OPENING: OpeningDraft = { role: "", level: "middle", skills: [] };
@@ -45,9 +47,17 @@ export const EMPTY_DRAFT: Draft = {
   cofounderRoles: [],
   company: "",
   openings: [EMPTY_OPENING],
+  telegram: "",
+  looksLike: "",
 };
 
 const target = (t: Partial<Target>): Target => ({ roles: [], skills: [], level: null, domains: [], ...t });
+
+/** «t.me/aigerim», «aigerim», «@aigerim» → «@aigerim»; пусто или мусор — null. */
+export function telegramHandle(raw: string): string | null {
+  const nick = raw.trim().replace(/^(https?:\/\/)?(t\.me\/)?@?/i, "");
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(nick) ? `@${nick}` : null;
+}
 
 export function toProfile(d: Draft, lang: Lang): ProfileInput {
   if (d.goal === null) throw new Error("цель не выбрана");
@@ -65,6 +75,9 @@ export function toProfile(d: Draft, lang: Lang): ProfileInput {
     target: target({}),
     openings: [] as Target[],
     company: null as string | null,
+    // Контакт и приметы видит только тот, с кем согласие взаимное.
+    telegram: telegramHandle(d.telegram),
+    looks_like: d.looksLike.trim() || null,
   };
   switch (d.goal) {
     case "find_job":

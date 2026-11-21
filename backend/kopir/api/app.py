@@ -24,6 +24,8 @@ from kopir.api.schemas import (
     IntroView,
     JoinRequest,
     JoinResponse,
+    LivePerson,
+    LiveResponse,
     ParseRequest,
     SquadOut,
     SquadRequest,
@@ -172,6 +174,23 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
     def list_intros(profile_id: str, request: Request, lang: Lang = "ru") -> list[IntroView]:
         hall = get_hall(request)
         return [_intro_view(hall, i, profile_id, lang) for i in hall.introductions.of(profile_id)]
+
+    @app.get("/api/live")
+    def live_hall(request: Request, profile_id: str | None = None, lang: Lang = "ru") -> LiveResponse:
+        """Реальные люди в зале прямо сейчас. Список виден тому, кто сам вошёл в зал."""
+        hall = get_hall(request)
+        me = hall.get(profile_id) if profile_id else None
+        if profile_id and (me is None or not hall.is_live(profile_id)):
+            raise HTTPException(status_code=404, detail="вы ещё не в зале")
+        people, matches = hall.live(me)
+        if me is None:
+            return LiveResponse(count=len(people), people=[])
+        ranked = sorted(people, key=lambda p: -(matches[p.id].score if p.id in matches else -1))
+        return LiveResponse(count=len(people) + 1, people=[
+            LivePerson(candidate=_candidate(p, lang),
+                       match=_recommendation(me, matches[p.id], lang, hall) if p.id in matches else None)
+            for p in ranked
+        ])
 
     @app.post("/api/squad")
     def build_squad(body: SquadRequest, request: Request) -> SquadOut | None:

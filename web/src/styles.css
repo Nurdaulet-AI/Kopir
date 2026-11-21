@@ -529,6 +529,30 @@ textarea { resize: vertical; line-height: 1.5; }
 .meetings__who { flex: 1; min-width: 140px; font-size: 0.9rem; font-weight: 600; }
 .meetings .meet__button { padding: 6px 12px; font-size: 0.82rem; }
 
+/* --- живой зал --- */
+.result-tabs { margin-top: 18px; }
+.result-tabs button { display: inline-flex; align-items: center; gap: 8px; }
+.live__dot { width: 8px; height: 8px; border-radius: 8px; background: #22c55e; box-shadow: 0 0 0 3px rgb(34 197 94 / 25%); }
+.live { margin-top: 16px; padding: 22px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-md); animation: rise 0.3s ease both; }
+.live__head { display: flex; gap: 14px; align-items: flex-start; }
+.live__head h2 { margin: 0; font-size: 1.1rem; font-weight: 750; }
+.live__head p { margin: 4px 0 0; font-size: 0.88rem; color: var(--text-2); line-height: 1.45; }
+.live__pulse { flex: none; width: 14px; height: 14px; margin-top: 6px; border-radius: 14px; background: #22c55e; animation: live-pulse 1.6s ease-out infinite; }
+@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 rgb(34 197 94 / 55%); } 100% { box-shadow: 0 0 0 12px rgb(34 197 94 / 0%); } }
+.live__join { display: grid; justify-items: start; gap: 10px; margin-top: 18px; }
+.live__join p { margin: 0; font-size: 0.84rem; color: var(--text-3); }
+.live__empty { display: flex; align-items: center; gap: 8px; margin: 16px 0 0; color: var(--text-2); font-size: 0.9rem; }
+.live__group { margin: 18px 0 8px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.live-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.live-person { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.live-person .avatar { width: 42px; height: 42px; border-radius: 12px; font-size: 0.85rem; }
+.live-person__who { flex: 1; min-width: 180px; display: grid; gap: 2px; }
+.live-person__who b { font-size: 0.95rem; }
+.live-person__who small { font-size: 0.8rem; color: var(--text-3); }
+.live-person__why { margin: 4px 0 0; font-size: 0.84rem; color: var(--text-2); line-height: 1.4; }
+.live-person__score { font-size: 0.8rem; font-weight: 700; color: var(--accent-strong); background: var(--accent-soft); padding: 3px 9px; border-radius: 999px; }
+.live-person__action .meet__button { padding: 8px 12px; font-size: 0.84rem; }
+
 /* --- мини-группа --- */
 .squad {
   margin-top: 20px; padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--accent-ring);

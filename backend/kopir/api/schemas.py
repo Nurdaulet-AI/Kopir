@@ -83,6 +83,16 @@ class ParseRequest(BaseModel):
     text: str = Field(max_length=2000)
 
 
+class LivePerson(BaseModel):
+    candidate: "Candidate"
+    match: "Recommendation | None" = Field(default=None, description="взаимное совпадение со мной, если цели совместимы")
+
+
+class LiveResponse(BaseModel):
+    count: int = Field(description="сколько реальных людей сейчас в зале")
+    people: list[LivePerson] = Field(description="пусто, пока я сам не вошёл в зал")
+
+
 class SquadRequest(BaseModel):
     profile: Profile
     lang: Lang = "ru"
@@ -155,3 +165,4 @@ class HealthResponse(BaseModel):
 # IntroView ссылается на Candidate, объявленный ниже.
 IntroView.model_rebuild()
 SquadOut.model_rebuild()
+LivePerson.model_rebuild()

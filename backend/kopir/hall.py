@@ -65,6 +65,16 @@ class Hall:
         """Живой ли это человек (а не вымышленная анкета демо-зала)."""
         return profile_id in self._joined
 
+    def live(self, me: Profile | None = None) -> tuple[list[Profile], dict[str, Match]]:
+        """Живые участники зала (кроме `me`) и взаимные совпадения `me` с ними."""
+        with self._lock:
+            people = [self._by_id[i] for i in self._joined if self._by_id.get(i) and (me is None or i != me.id)]
+            if me is None:
+                return people, {}
+            synthetic = [p.id for p in self._matcher.profiles if p.id not in self._joined]
+            matches = self._matcher.score_all(me, exclude=synthetic)
+            return people, {m.profile.id: m for m in matches}
+
     def __len__(self) -> int:
         return len(self._by_id)
 

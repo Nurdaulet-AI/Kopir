@@ -33,6 +33,8 @@ export interface ProfileInput {
   target: Target;
   openings: Target[];
   company: string | null;
+  telegram?: string | null;
+  looks_like?: string | null;
 }
 
 export interface Option {
@@ -120,6 +122,16 @@ export interface Squad {
   domains: string[];
 }
 
+export interface LivePerson {
+  candidate: Candidate;
+  match: Recommendation | null;
+}
+
+export interface LiveHall {
+  count: number;
+  people: LivePerson[];
+}
+
 export interface ParsedProfile {
   role: string | null;
   level: Level | null;
@@ -185,5 +197,7 @@ export const api = {
     request<IntroView[]>(`/api/intros?profile_id=${encodeURIComponent(profileId)}&lang=${lang}`),
   squad: (profile: ProfileInput, lang: Lang) =>
     request<Squad | null>("/api/squad", { method: "POST", body: JSON.stringify({ profile, lang }) }),
+  live: (profileId: string | null, lang: Lang) =>
+    request<LiveHall>(`/api/live?lang=${lang}${profileId ? `&profile_id=${encodeURIComponent(profileId)}` : ""}`),
   parse: (text: string) => request<ParsedProfile>("/api/parse", { method: "POST", body: JSON.stringify({ text }) }),
 };

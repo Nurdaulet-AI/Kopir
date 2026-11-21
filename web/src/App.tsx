@@ -6,6 +6,7 @@ import {
   LANGS,
   type Feedback,
   type IntroView,
+  type LiveHall,
   type Lang,
   type Options,
   type ProfileInput,
@@ -20,10 +21,11 @@ import { OrganizerDashboard } from "./components/OrganizerDashboard";
 import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { SquadCard } from "./components/SquadCard";
+import { LivePanel } from "./components/LivePanel";
 import { beaconInk } from "./components/ink";
 import { format, STRINGS, type Strings, type TextKey } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
-import { announceReady, displayName, langOf, readLaunch } from "./telegram";
+import { announceReady, displayName, langOf, readLaunch, usernameOf } from "./telegram";
 
 const PAGE = 5;
 // Сервер отдаёт не больше 20 рекомендаций за запрос.
@@ -97,7 +99,8 @@ export default function App() {
   const [options, setOptions] = useState<Options | null>(null);
   const [draft, setDraft] = useState<Draft>(() => {
     const saved = { ...EMPTY_DRAFT, ...load<Partial<Draft>>("kopir.draft", {}) };
-    return saved.name ? saved : { ...saved, name: displayName(TELEGRAM) };
+    const withTg = saved.telegram ? saved : { ...saved, telegram: usernameOf(TELEGRAM) };
+    return withTg.name ? withTg : { ...withTg, name: displayName(TELEGRAM) };
   });
   const [results, setResults] = useState<Results | null>(null);
   const [pending, setPending] = useState(false);
@@ -110,6 +113,8 @@ export default function App() {
   const [beacon, setBeacon] = useState<IntroView | null>(null);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [squad, setSquad] = useState<Squad | null>(null);
+  const [tab, setTab] = useState<"matches" | "live">("matches");
+  const [live, setLive] = useState<LiveHall | null>(null);
   const joining = useRef<Promise<string> | null>(null);
   const seen = useRef(new Map<string, string>());
   const [agreed, setAgreed] = useState<string | null>(null);
@@ -173,6 +178,33 @@ export default function App() {
     };
   }, [profileId, lang]);
 
+  // Живой зал: счётчик виден всегда, список — после входа. Опрос раз в 5 секунд, пока открыта подборка.
+  useEffect(() => {
+    if (!results) return;
+    let cancelled = false;
+    const tick = () => api.live(profileId, lang).then((h) => !cancelled && setLive(h), (e) => {
+      if (cancelled) return;
+      if (e instanceof ApiError && e.status === 404) { // сервер перезапустился — войти заново
+        setProfileId(null);
+        joining.current = null;
+      }
+    });
+    void tick();
+    const timer = window.setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [results, profileId, lang]);
+
+  const joinHall = () => {
+    if (!results) return;
+    void guarded(async () => {
+      const me = await ensureJoined(results.profile);
+      setLive(await api.live(me, lang));
+    }, lang);
+  };
+
   const upsertIntro = (intro: IntroView) => {
     if (!seen.current.has(intro.id)) seen.current.set(intro.id, intro.status);
     setIntros((list) => [intro, ...list.filter((i) => i.id !== intro.id)]);
@@ -188,11 +220,11 @@ export default function App() {
     return joining.current;
   };
 
-  const wantMeet = (rec: Recommendation) => {
+  const wantMeet = (candidateId: string) => {
     if (!results) return;
     void guarded(async () => {
       const me = await ensureJoined(results.profile);
-      const intro = await api.intro(me, rec.candidate.id, lang);
+      const intro = await api.intro(me, candidateId, lang);
       upsertIntro(intro);
       if (intro.status === "accepted") setBeacon(intro); // встречный запрос: согласие уже есть
     }, lang);
@@ -426,7 +458,7 @@ export default function App() {
             {intros.filter((i) => i.direction === "incoming" && i.status === "pending").map((i) => (
               <div className="incoming" key={i.id} role="status">
                 <BellRing size={18} aria-hidden />
-                <span><b>{i.other.name}</b> · {i.other.role_label} — {t.incoming}</span>
+                <span>{format(t.incoming, { name: i.other.name })} · {i.other.role_label}</span>
                 <button type="button" className="meet__button" onClick={() => answer(i, true)} disabled={busy}>
                   <Check size={15} aria-hidden /> {t.accept}
                 </button>
@@ -443,8 +475,20 @@ export default function App() {
                 ))}
               </div>
             )}
-            {squad && !pending && <SquadCard squad={squad} t={t} intros={intros} busy={busy} onInvite={inviteSquad} onOpenBeacon={setBeacon} />}
-            <div className="results__list">
+            {results && !pending && (
+              <div className="segmented result-tabs" role="group">
+                <button type="button" aria-pressed={tab === "matches"} onClick={() => setTab("matches")}>{t.tabMatches}</button>
+                <button type="button" aria-pressed={tab === "live"} onClick={() => setTab("live")}>
+                  <span className="live__dot" aria-hidden /> {t.tabLive} · {live?.count ?? 0}
+                </button>
+              </div>
+            )}
+            {tab === "live" && results && !pending && (
+              <LivePanel hall={live} joined={profileId !== null} t={t} intros={intros} busy={busy}
+                         onJoin={joinHall} onMeet={wantMeet} onOpenBeacon={setBeacon} />
+            )}
+            {tab === "matches" && squad && !pending && <SquadCard squad={squad} t={t} intros={intros} busy={busy} onInvite={inviteSquad} onOpenBeacon={setBeacon} />}
+            {tab === "matches" && <div className="results__list">
               {pending
                 ? Array.from({ length: PAGE }, (_, i) => <ResultSkeleton key={i} />)
                 : results?.items.map((rec, i) => (
@@ -457,13 +501,13 @@ export default function App() {
                       onMet={() => giveFeedback(rec, { candidate_id: rec.candidate.id, verdict: "met" })}
                       onNotFit={(reason) => giveFeedback(rec, { candidate_id: rec.candidate.id, verdict: "not_fit", reason })}
                       intro={intros.find((i) => i.other.id === rec.candidate.id && i.status !== "declined")}
-                      onWantMeet={() => wantMeet(rec)}
+                      onWantMeet={() => wantMeet(rec.candidate.id)}
                       onOpenBeacon={() => setBeacon(intros.find((i) => i.other.id === rec.candidate.id) ?? null)}
                     />
                   ))}
-            </div>
+            </div>}
             {error && <p className="alert alert--error" role="alert">{error}</p>}
-            {results && !pending && (results.exhausted ? (
+            {tab === "matches" && results && !pending && (results.exhausted ? (
               <p className="results__end">{t.noMore}</p>
             ) : (
               <button type="button" className="secondary-button" onClick={showMore} disabled={busy}>

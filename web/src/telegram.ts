@@ -12,6 +12,7 @@ import { LANGS, type Lang } from "./api";
 
 interface TelegramUser {
   first_name?: string;
+  username?: string;
   last_name?: string;
   language_code?: string;
 }
@@ -90,4 +91,10 @@ export function displayName(launch: TelegramLaunch | null): string {
   if (!first) return "";
   const last = launch?.user?.last_name?.trim();
   return last ? `${first} ${last[0]}.` : first;
+}
+
+/** Ник из профиля Telegram — чтобы после взаимного согласия собеседник мог написать. */
+export function usernameOf(launch: TelegramLaunch | null): string {
+  const u = launch?.user?.username?.trim();
+  return u ? `@${u}` : "";
 }
