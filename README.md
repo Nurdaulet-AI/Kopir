@@ -111,13 +111,13 @@ docker compose --profile bot up
 
 ```mermaid
 flowchart LR
-    U[Участник<br>веб / Telegram Mini App] -->|анкета| API[FastAPI]
-    API --> M[Направленная полезность<br>u(A→B), u(B→A)]
-    M --> R[Взаимный балл<br>анти-очередь · MMR · личные веса]
-    R --> E[Объяснения из фактов<br>RU / KK / EN]
+    U["Участник<br>веб / Telegram Mini App"] -->|анкета| API[FastAPI]
+    API --> M["Направленная полезность<br>u(A→B), u(B→A)"]
+    M --> R["Взаимный балл<br>анти-очередь · MMR · личные веса"]
+    R --> E["Объяснения из фактов<br>RU / KK / EN"]
     E --> U
-    O[Организатор] --> D[Дашборд: карта зала,<br>рынок ролей, выводы] --> API
-    T[Telegram] <-->|webhook| API
+    O["Организатор"] --> D["Дашборд: карта зала,<br>рынок ролей, выводы"] --> API
+    T["Telegram"] <-->|webhook| API
 ```
 
 - **Backend:** Python 3.12, FastAPI, Pydantic, NumPy, aiogram 3 · `uv`
