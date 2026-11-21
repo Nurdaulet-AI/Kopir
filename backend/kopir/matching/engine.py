@@ -13,6 +13,7 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
 
+from kopir.matching.feedback import Factors, personal_score
 from kopir.matching.utility import Utility, utility
 from kopir.models import Profile
 from kopir.taxonomy import Goal
@@ -99,21 +100,24 @@ class Matcher:
         self.similarity = similarity
         self.exposure = exposure or Exposure()
 
-    def _directional(self, a: Profile, b: Profile) -> tuple[Utility, float]:
-        """Полезность B для A и её итоговый балл с учётом смысловой близости текстов."""
+    def _directional(self, a: Profile, b: Profile, factors: Factors | None = None) -> tuple[Utility, float]:
+        """Полезность B для A и её итоговый балл с личными весами A и смысловой близостью текстов."""
         u = utility(a, b)
-        score = u.score
+        score = personal_score(u, factors) if factors else u.score
         if score > 0 and self.similarity is not None:
             score = (1 - SEMANTIC_WEIGHT) * score + SEMANTIC_WEIGHT * self.similarity(a, b)
         return u, score
 
-    def score_all(self, me: Profile, exclude: Collection[str] = ()) -> list[Match]:
-        """Все взаимно полезные кандидаты, без ранжирования."""
+    def score_all(self, me: Profile, exclude: Collection[str] = (), factors: Factors | None = None) -> list[Match]:
+        """Все взаимно полезные кандидаты, без ранжирования.
+
+        `factors` — личные веса `me` из обратной связи; влияют только на сторону «полезен мне».
+        """
         matches = []
         for other in self.profiles:
             if other.id == me.id or other.id in exclude:
                 continue
-            for_me, ab = self._directional(me, other)
+            for_me, ab = self._directional(me, other, factors)
             if ab <= 0:
                 continue
             for_them, ba = self._directional(other, me)
@@ -129,9 +133,10 @@ class Matcher:
         exclude: Collection[str] = (),
         record: bool = True,
         now: float | None = None,
+        factors: Factors | None = None,
     ) -> list[Match]:
         """Топ-K по взаимному баллу с анти-очередью и MMR-разнообразием."""
-        pool = self.score_all(me, exclude)
+        pool = self.score_all(me, exclude, factors)
         relevance = {m.profile.id: m.score * self.exposure.penalty(m.profile.id, now) for m in pool}
         picked: list[Match] = []
         while pool and len(picked) < k:

@@ -4,10 +4,25 @@
 узнать»): ими участники обмениваются только после взаимного согласия.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from kopir.matching.feedback import Reason, Verdict
 from kopir.models import Profile
 from kopir.taxonomy import Lang
+
+
+class Feedback(BaseModel):
+    """Отзыв о рекомендованном человеке. Причина нужна только для «не подошло»."""
+
+    candidate_id: str
+    verdict: Verdict
+    reason: Reason | None = None
+
+    @model_validator(mode="after")
+    def _reason_only_for_not_fit(self) -> "Feedback":
+        if self.verdict == "met" and self.reason is not None:
+            raise ValueError("причина указывается только для «не подошло»")
+        return self
 
 
 class RecommendRequest(BaseModel):
@@ -16,6 +31,7 @@ class RecommendRequest(BaseModel):
     k: int = Field(5, ge=1, le=20)
     exclude: list[str] = Field(default_factory=list, description="id уже показанных людей («показать ещё»)")
     join: bool = Field(False, description="добавить анкету в зал, чтобы её рекомендовали другим")
+    feedback: list[Feedback] = Field(default_factory=list, description="отзывы: исключают людей и меняют личные веса")
 
 
 class Option(BaseModel):
@@ -65,6 +81,7 @@ class RecommendResponse(BaseModel):
     profile_id: str
     lang: Lang
     recommendations: list[Recommendation]
+    factors: dict[str, float] = Field(description="личные веса критериев из отзывов «не подошло»")
     elapsed_ms: float
 
 

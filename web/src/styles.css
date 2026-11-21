@@ -359,6 +359,27 @@ textarea { resize: vertical; line-height: 1.5; }
 .icebreaker blockquote { margin: 6px 0 0; font-size: 0.93rem; color: var(--text); }
 .icebreaker .icon-button { position: absolute; top: 12px; right: 12px; }
 
+/* --- обратная связь --- */
+.feedback { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.feedback__button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2);
+  font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.feedback__button:hover:not(:disabled) { color: var(--text); border-color: var(--text-3); }
+.feedback__button--met:hover:not(:disabled) { color: var(--accent-strong); border-color: var(--accent); background: var(--accent-soft); }
+.feedback__button:disabled, .feedback .chip:disabled { opacity: 0.6; cursor: progress; }
+.feedback__reasons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.feedback__question { font-size: 0.82rem; font-weight: 600; color: var(--text-2); margin-right: 4px; }
+
+.notice {
+  display: flex; align-items: center; gap: 8px; margin: 14px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--accent-soft); color: var(--accent-strong); font-size: 0.88rem; font-weight: 550;
+  animation: rise 0.3s ease both;
+}
+.met { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; }
+.met__title { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 700; color: var(--text-2); margin-right: 4px; }
+
 /* --- скелетоны и анимации --- */
 .result--skeleton { animation: none; }
 .skeleton { border-radius: 8px; background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }

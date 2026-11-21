@@ -5,6 +5,20 @@
 import type { Goal, Lang } from "./api";
 
 const ru = {
+  met: "Познакомились",
+  notFit: "Не подошло",
+  whatsOff: "Что не так?",
+  reasonLevel: "Не тот уровень",
+  reasonStack: "Не тот стек",
+  reasonDomain: "Не та сфера",
+  reasonOther: "Другое",
+  cancel: "Отмена",
+  feedbackApplied: "Учли отзыв — подборка обновлена.",
+  nowMatters: "Теперь важнее: {what}.",
+  whatLevel: "уровень",
+  whatStack: "стек и темы",
+  whatDomain: "сфера",
+  metTitle: "Вы познакомились",
   heroSubtitle: "Расскажите, зачем вы пришли, — Kópir найдёт 5 человек, которым вы тоже нужны.",
   featureMutual: "Взаимный подбор",
   featureFast: "Меньше секунды",
@@ -71,6 +85,20 @@ const ru = {
 type Strings = typeof ru;
 
 const kk: Strings = {
+  met: "Таныстым",
+  notFit: "Сәйкес келмеді",
+  whatsOff: "Не сәйкес емес?",
+  reasonLevel: "Деңгейі сәйкес емес",
+  reasonStack: "Стегі сәйкес емес",
+  reasonDomain: "Саласы сәйкес емес",
+  reasonOther: "Басқа себеп",
+  cancel: "Бас тарту",
+  feedbackApplied: "Пікіріңіз ескерілді — іріктеу жаңартылды.",
+  nowMatters: "Енді маңыздырақ: {what}.",
+  whatLevel: "деңгей",
+  whatStack: "стек пен тақырыптар",
+  whatDomain: "сала",
+  metTitle: "Сіз танысқан адамдар",
   heroSubtitle: "Не үшін келгеніңізді айтыңыз — Kópir сізге де қажет 5 адамды табады.",
   featureMutual: "Өзара сәйкестік",
   featureFast: "Бір секундтан аз",
@@ -135,6 +163,20 @@ const kk: Strings = {
 };
 
 const en: Strings = {
+  met: "We met",
+  notFit: "Not a fit",
+  whatsOff: "What's off?",
+  reasonLevel: "Wrong level",
+  reasonStack: "Wrong stack",
+  reasonDomain: "Wrong domain",
+  reasonOther: "Other",
+  cancel: "Cancel",
+  feedbackApplied: "Thanks — your matches were updated.",
+  nowMatters: "Now weighted higher: {what}.",
+  whatLevel: "level",
+  whatStack: "stack & topics",
+  whatDomain: "domain",
+  metTitle: "People you've met",
   heroSubtitle: "Tell us why you're here — Kópir finds 5 people who need you too.",
   featureMutual: "Mutual matching",
   featureFast: "Under a second",

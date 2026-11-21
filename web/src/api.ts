@@ -82,8 +82,16 @@ export interface RecommendResponse {
   profile_id: string;
   lang: Lang;
   recommendations: Recommendation[];
+  /** Личные веса критериев из отзывов «не подошло». */
+  factors: Record<string, number>;
   elapsed_ms: number;
 }
+
+export type Reason = "level" | "stack" | "domain" | "other";
+
+export type Feedback =
+  | { candidate_id: string; verdict: "met" }
+  | { candidate_id: string; verdict: "not_fit"; reason: Reason };
 
 export interface RecommendRequest {
   profile: ProfileInput;
@@ -91,6 +99,7 @@ export interface RecommendRequest {
   k?: number;
   exclude?: string[];
   join?: boolean;
+  feedback?: Feedback[];
 }
 
 /** Ошибка API с человекочитаемым текстом (в том числе из ответа 422). */

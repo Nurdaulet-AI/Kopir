@@ -1,7 +1,7 @@
-import { ArrowLeftRight, Check, Copy, MapPin, MessageCircle, TriangleAlert, UserRound } from "lucide-react";
+import { ArrowLeftRight, Check, Copy, Handshake, MapPin, MessageCircle, ThumbsDown, TriangleAlert, UserRound } from "lucide-react";
 import { useId, useState, type CSSProperties } from "react";
-import type { Recommendation } from "../api";
-import type { Strings } from "../i18n";
+import type { Reason, Recommendation } from "../api";
+import type { Strings, TextKey } from "../i18n";
 
 const RADIUS = 24;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -56,11 +56,23 @@ interface Props {
   rec: Recommendation;
   t: Strings;
   index: number;
+  /** Отзыв о человеке; пока идёт пересчёт, кнопки неактивны. */
+  onMet: () => void;
+  onNotFit: (reason: Reason) => void;
+  busy: boolean;
 }
 
-export function ResultCard({ rec, t, index }: Props) {
+const REASONS: [Reason, TextKey][] = [
+  ["level", "reasonLevel"],
+  ["stack", "reasonStack"],
+  ["domain", "reasonDomain"],
+  ["other", "reasonOther"],
+];
+
+export function ResultCard({ rec, t, index, onMet, onNotFit, busy }: Props) {
   const { candidate: c, explanation: e } = rec;
   const [copied, setCopied] = useState(false);
+  const [choosingReason, setChoosingReason] = useState(false);
 
   const copy = async () => {
     try {
@@ -146,6 +158,31 @@ export function ResultCard({ rec, t, index }: Props) {
           {copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}
         </button>
       </figure>
+
+      <footer className="feedback">
+        {choosingReason ? (
+          <div className="feedback__reasons" role="group" aria-label={t.whatsOff}>
+            <span className="feedback__question">{t.whatsOff}</span>
+            {REASONS.map(([reason, label]) => (
+              <button type="button" key={reason} className="chip" disabled={busy} onClick={() => onNotFit(reason)}>
+                {t[label]}
+              </button>
+            ))}
+            <button type="button" className="ghost-button" onClick={() => setChoosingReason(false)}>
+              {t.cancel}
+            </button>
+          </div>
+        ) : (
+          <>
+            <button type="button" className="feedback__button feedback__button--met" disabled={busy} onClick={onMet}>
+              <Handshake size={16} aria-hidden /> {t.met}
+            </button>
+            <button type="button" className="feedback__button" disabled={busy} onClick={() => setChoosingReason(true)}>
+              <ThumbsDown size={16} aria-hidden /> {t.notFit}
+            </button>
+          </>
+        )}
+      </footer>
     </article>
   );
 }

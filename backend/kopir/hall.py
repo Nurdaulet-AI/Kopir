@@ -14,6 +14,7 @@ from pathlib import Path
 
 from kopir.data.generator import generate
 from kopir.matching.engine import Match, Matcher
+from kopir.matching.feedback import Factors
 from kopir.models import Profile
 
 # Сид зала по умолчанию: тот же, что у выгруженного data/profiles.json.
@@ -66,6 +67,8 @@ class Hall:
             self._matcher.profiles.append(profile)
             self._count_skills(profile)
 
-    def recommend(self, me: Profile, k: int = 5, exclude: Collection[str] = ()) -> list[Match]:
+    def recommend(
+        self, me: Profile, k: int = 5, exclude: Collection[str] = (), factors: Factors | None = None
+    ) -> list[Match]:
         with self._lock:
-            return self._matcher.recommend(me, k=k, exclude=exclude)
+            return self._matcher.recommend(me, k=k, exclude=exclude, factors=factors)

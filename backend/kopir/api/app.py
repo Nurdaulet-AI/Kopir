@@ -27,6 +27,7 @@ from kopir.api.schemas import (
 from kopir.explain import explain
 from kopir.hall import Hall
 from kopir.matching.engine import Match
+from kopir.matching.feedback import preference_factors
 from kopir.models import Profile, new_profile_id
 from kopir.taxonomy import DOMAIN_LABELS, GOAL_LABELS, GOAL_STATUS, LEVEL_LABELS, ROLE_LABELS, SKILLS, Goal, Lang, Level
 
@@ -94,11 +95,14 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
                 hall.join(me)
             except ValueError as e:
                 raise HTTPException(status_code=409, detail=str(e)) from e
-        matches = hall.recommend(me, k=body.k, exclude=body.exclude)
+        factors = preference_factors(f.reason for f in body.feedback if f.verdict == "not_fit" and f.reason)
+        exclude = {*body.exclude, *(f.candidate_id for f in body.feedback)}
+        matches = hall.recommend(me, k=body.k, exclude=exclude, factors=factors)
         return RecommendResponse(
             profile_id=me.id,
             lang=lang,
             recommendations=[_recommendation(me, m, lang, hall) for m in matches],
+            factors=factors,
             elapsed_ms=round((time.perf_counter() - started) * 1000, 2),
         )
 

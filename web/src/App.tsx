@@ -1,11 +1,21 @@
-import { ArrowLeft, ArrowLeftRight, Languages, LoaderCircle, ShieldCheck, Zap } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Handshake, Languages, LoaderCircle, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, LANGS, type Lang, type Options, type ProfileInput, type Recommendation } from "./api";
+import {
+  api,
+  ApiError,
+  LANGS,
+  type Feedback,
+  type Lang,
+  type Options,
+  type ProfileInput,
+  type Reason,
+  type Recommendation,
+} from "./api";
 import { LangSwitch, ThemeSwitch, type Theme } from "./components/Controls";
 import { ShanyraqMark } from "./components/Logo";
 import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
-import { format, STRINGS, type Strings } from "./i18n";
+import { format, STRINGS, type Strings, type TextKey } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
 
 const PAGE = 5;
@@ -46,6 +56,25 @@ interface Results {
   items: Recommendation[];
   elapsedMs: number;
   exhausted: boolean;
+  /** Все отзывы по этой анкете: сервер исключает этих людей и меняет личные веса. */
+  feedback: Feedback[];
+  met: Recommendation[];
+  lastFeedback: Feedback | null;
+}
+
+// Что стало важнее после «не подошло» — для подсказки над выдачей.
+const REASON_TEXT: Record<Exclude<Reason, "other">, TextKey> = {
+  level: "whatLevel",
+  stack: "whatStack",
+  domain: "whatDomain",
+};
+
+function feedbackNotice(f: Feedback | null, t: Strings): string | null {
+  if (f === null) return null;
+  if (f.verdict === "not_fit" && f.reason !== "other") {
+    return `${t.feedbackApplied} ${format(t.nowMatters, { what: t[REASON_TEXT[f.reason]] })}`;
+  }
+  return t.feedbackApplied;
 }
 
 export default function App() {
@@ -81,30 +110,23 @@ export default function App() {
 
   useEffect(() => save("kopir.draft", draft), [draft]);
 
-  const run = useCallback(
-    async (profile: ProfileInput, opts: { exclude?: string[]; append?: boolean } = {}) => {
+  const request = (profile: ProfileInput, l: Lang, feedback: Feedback[], k: number, exclude: string[] = []) =>
+    api.recommend({ profile, lang: l, k, exclude, feedback });
+
+  const guarded = useCallback(
+    async (job: () => Promise<void>, l: Lang) => {
       setBusy(true);
       setError(null);
-      if (!opts.append) {
-        setPending(true);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
       try {
-        const res = await api.recommend({ profile, lang, k: PAGE, exclude: opts.exclude ?? [] });
-        setResults((prev) => ({
-          profile,
-          items: opts.append && prev ? [...prev.items, ...res.recommendations] : res.recommendations,
-          elapsedMs: res.elapsed_ms,
-          exhausted: res.recommendations.length < PAGE,
-        }));
+        await job();
       } catch (e) {
-        setError(errorText(e, t));
+        setError(errorText(e, STRINGS[l]));
       } finally {
         setBusy(false);
         setPending(false);
       }
     },
-    [lang, t],
+    [],
   );
 
   const submit = () => {
@@ -113,24 +135,53 @@ export default function App() {
       setError(t[problem]);
       return;
     }
-    void run(toProfile(draft, lang));
+    const profile = toProfile(draft, lang);
+    setPending(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    void guarded(async () => {
+      const res = await request(profile, lang, [], PAGE);
+      setResults({
+        profile, items: res.recommendations, elapsedMs: res.elapsed_ms, exhausted: res.recommendations.length < PAGE,
+        feedback: [], met: [], lastFeedback: null,
+      });
+    }, lang);
   };
 
   const showMore = () => {
     if (!results) return;
-    void run(results.profile, { exclude: results.items.map((r) => r.candidate.id), append: true });
+    void guarded(async () => {
+      const seen = results.items.map((r) => r.candidate.id);
+      const res = await request(results.profile, lang, results.feedback, PAGE, seen);
+      setResults({
+        ...results, items: [...results.items, ...res.recommendations], elapsedMs: res.elapsed_ms,
+        exhausted: res.recommendations.length < PAGE,
+      });
+    }, lang);
+  };
+
+  /** Отзыв: человек уходит из выдачи, подборка того же размера пересчитывается с новыми весами. */
+  const giveFeedback = (rec: Recommendation, item: Feedback) => {
+    if (!results) return;
+    const feedback = [...results.feedback, item];
+    const k = Math.min(Math.max(results.items.length, PAGE), MAX_K);
+    void guarded(async () => {
+      const res = await request(results.profile, lang, feedback, k);
+      setResults({
+        ...results, items: res.recommendations, elapsedMs: res.elapsed_ms, exhausted: res.recommendations.length < k,
+        feedback, met: item.verdict === "met" ? [...results.met, rec] : results.met, lastFeedback: item,
+      });
+    }, lang);
   };
 
   const changeLang = (next: Lang) => {
     setLang(next);
     // Объяснения строит сервер на нужном языке — перезапрашиваем показанное.
-    if (results) {
-      const profile = { ...results.profile, lang: next };
-      void api
-        .recommend({ profile, lang: next, k: Math.min(results.items.length, MAX_K) })
-        .then((res) => setResults({ ...results, profile, items: res.recommendations }))
-        .catch((e) => setError(errorText(e, STRINGS[next])));
-    }
+    if (!results) return;
+    const profile = { ...results.profile, lang: next };
+    void guarded(async () => {
+      const res = await request(profile, next, results.feedback, Math.min(Math.max(results.items.length, 1), MAX_K));
+      setResults({ ...results, profile, items: res.recommendations });
+    }, next);
   };
 
   const showResults = pending || results !== null;
@@ -194,11 +245,32 @@ export default function App() {
                 <Zap size={14} aria-hidden /> {format(t.matchedIn, { ms: Math.max(1, Math.round(results.elapsedMs)) })}
               </p>
             )}
+            {results && !pending && feedbackNotice(results.lastFeedback, t) && (
+              <p className="notice" role="status">
+                <Sparkles size={15} aria-hidden /> {feedbackNotice(results.lastFeedback, t)}
+              </p>
+            )}
+            {results && results.met.length > 0 && (
+              <div className="met">
+                <span className="met__title"><Handshake size={15} aria-hidden /> {t.metTitle}</span>
+                {results.met.map((r) => (
+                  <span className="pill" key={r.candidate.id}>{r.candidate.name} · {r.candidate.role_label}</span>
+                ))}
+              </div>
+            )}
             <div className="results__list">
               {pending
                 ? Array.from({ length: PAGE }, (_, i) => <ResultSkeleton key={i} />)
                 : results?.items.map((rec, i) => (
-                    <ResultCard key={rec.candidate.id} rec={rec} t={t} index={i % PAGE} />
+                    <ResultCard
+                      key={rec.candidate.id}
+                      rec={rec}
+                      t={t}
+                      index={i % PAGE}
+                      busy={busy}
+                      onMet={() => giveFeedback(rec, { candidate_id: rec.candidate.id, verdict: "met" })}
+                      onNotFit={(reason) => giveFeedback(rec, { candidate_id: rec.candidate.id, verdict: "not_fit", reason })}
+                    />
                   ))}
             </div>
             {error && <p className="alert alert--error" role="alert">{error}</p>}
