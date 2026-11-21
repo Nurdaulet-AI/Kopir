@@ -60,6 +60,7 @@ class BeaconOut(BaseModel):
     code: str
     zone: int
     time: str
+    slot: int
 
 
 class Contact(BaseModel):
@@ -91,6 +92,26 @@ class LivePerson(BaseModel):
 class LiveResponse(BaseModel):
     count: int = Field(description="сколько реальных людей сейчас в зале")
     people: list[LivePerson] = Field(description="пусто, пока я сам не вошёл в зал")
+
+
+class SlotOut(BaseModel):
+    slot: int
+    time: str
+    free: bool = Field(description="свободен у всех участников встречи (текущий — тоже)")
+
+
+class SlotRequest(BaseModel):
+    profile_id: str
+    slot: int
+
+
+class BookingOut(BaseModel):
+    time: str
+    zone: int
+    code: str
+    color: str
+    people: list[str] = Field(description="имена участников встречи")
+    live: bool = Field(description="все участники — реальные люди, а не демо-анкеты")
 
 
 class SquadRequest(BaseModel):

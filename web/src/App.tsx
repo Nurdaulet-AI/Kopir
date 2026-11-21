@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftRight, BellRing, CalendarClock, Check, Handshake, Radio, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, BellRing, Check, Handshake, Languages, LayoutDashboard, LoaderCircle, ShieldCheck, Sparkles, UserRound, Zap } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
@@ -22,7 +22,7 @@ import { ProfileForm } from "./components/ProfileForm";
 import { ResultCard, ResultSkeleton } from "./components/ResultCard";
 import { SquadCard } from "./components/SquadCard";
 import { LivePanel } from "./components/LivePanel";
-import { beaconInk } from "./components/ink";
+import { MyMeetings } from "./components/MyMeetings";
 import { format, STRINGS, type Strings, type TextKey } from "./i18n";
 import { EMPTY_DRAFT, example, toProfile, validate, type Draft } from "./profile";
 import { announceReady, displayName, langOf, readLaunch, usernameOf } from "./telegram";
@@ -165,6 +165,8 @@ export default function App() {
       const fresh = list.find((i) => i.status === "accepted" && seen.current.get(i.id) === "pending");
       list.forEach((i) => seen.current.set(i.id, i.status));
       setIntros(list);
+      // Открытый маячок показывает актуальное время, если встречу перенесли.
+      setBeacon((b) => (b ? list.find((i) => i.id === b.id) ?? b : b));
       if (fresh) {
         setAgreed(format(STRINGS[lang].agreed, { name: fresh.other.name }));
         setBeacon(fresh);
@@ -205,8 +207,19 @@ export default function App() {
     }, lang);
   };
 
+  /** После переноса встречи: у группы время меняется у всех, поэтому берём свежий список. */
+  const refreshIntros = () => {
+    if (!profileId) return;
+    api.intros(profileId, lang).then((list) => {
+      list.forEach((i) => seen.current.set(i.id, i.status));
+      setIntros(list);
+      setBeacon((b) => (b ? list.find((i) => i.id === b.id) ?? b : b));
+    }, (e) => setError(errorText(e, t)));
+  };
+
   const upsertIntro = (intro: IntroView) => {
-    if (!seen.current.has(intro.id)) seen.current.set(intro.id, intro.status);
+    // Что пользователь сделал сам (принял, отправил), не считается «свежим» ответом при следующем опросе.
+    seen.current.set(intro.id, intro.status);
     setIntros((list) => [intro, ...list.filter((i) => i.id !== intro.id)]);
   };
 
@@ -434,26 +447,9 @@ export default function App() {
             {agreed && !pending && (
               <p className="notice" role="status"><Check size={15} aria-hidden /> {agreed}</p>
             )}
-            {intros.some((i) => i.status === "accepted" && i.beacon) && (
-              <section className="meetings">
-                <h2><CalendarClock size={17} aria-hidden /> {t.myMeetings}</h2>
-                <ul>
-                  {Array.from(new Map(intros.filter((i) => i.status === "accepted" && i.beacon)
-                    .sort((a, b) => a.beacon!.time.localeCompare(b.beacon!.time))
-                    .map((i) => [i.beacon!.code, i])).values()).map((i) => (
-                    <li key={i.id}>
-                      <span className="meetings__time">{i.beacon!.time}</span>
-                      <span className="meetings__who">
-                        {intros.filter((x) => x.beacon?.code === i.beacon!.code).map((x) => x.other.name).join(", ")}
-                      </span>
-                      <button type="button" className="meet__button meet__button--beacon" onClick={() => setBeacon(i)}
-                              style={{ ["--beacon" as string]: i.beacon!.color, ["--beacon-ink" as string]: beaconInk(i.beacon!.color) }}>
-                        <Radio size={15} aria-hidden /> {format(t.zone, { n: i.beacon!.zone })} · {i.beacon!.code}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+            {profileId && (
+              <MyMeetings intros={intros} profileId={profileId} lang={lang} t={t} onOpenBeacon={setBeacon}
+                          onChanged={refreshIntros} onError={(e) => setError(errorText(e, t))} />
             )}
             {intros.filter((i) => i.direction === "incoming" && i.status === "pending").map((i) => (
               <div className="incoming" key={i.id} role="status">

@@ -110,7 +110,7 @@ export interface IntroView {
   direction: "outgoing" | "incoming";
   simulated: boolean;
   other: Candidate;
-  beacon: { color: string; code: string; zone: number; time: string } | null;
+  beacon: { color: string; code: string; zone: number; time: string; slot: number } | null;
   contact: { telegram: string | null; looks_like: string | null } | null;
 }
 
@@ -120,6 +120,21 @@ export interface Squad {
   cohesion: number;
   skills: string[];
   domains: string[];
+}
+
+export interface SlotOption {
+  slot: number;
+  time: string;
+  free: boolean;
+}
+
+export interface Booking {
+  time: string;
+  zone: number;
+  code: string;
+  color: string;
+  people: string[];
+  live: boolean;
 }
 
 export interface LivePerson {
@@ -197,6 +212,13 @@ export const api = {
     request<IntroView[]>(`/api/intros?profile_id=${encodeURIComponent(profileId)}&lang=${lang}`),
   squad: (profile: ProfileInput, lang: Lang) =>
     request<Squad | null>("/api/squad", { method: "POST", body: JSON.stringify({ profile, lang }) }),
+  slots: (introId: string, profileId: string) =>
+    request<SlotOption[]>(`/api/intros/${introId}/slots?profile_id=${encodeURIComponent(profileId)}`),
+  reschedule: (introId: string, profileId: string, slot: number, lang: Lang) =>
+    request<IntroView>(`/api/intros/${introId}/slot?lang=${lang}`, {
+      method: "POST", body: JSON.stringify({ profile_id: profileId, slot }),
+    }),
+  bookings: () => request<Booking[]>("/api/bookings"),
   live: (profileId: string | null, lang: Lang) =>
     request<LiveHall>(`/api/live?lang=${lang}${profileId ? `&profile_id=${encodeURIComponent(profileId)}` : ""}`),
   parse: (text: string) => request<ParsedProfile>("/api/parse", { method: "POST", body: JSON.stringify({ text }) }),

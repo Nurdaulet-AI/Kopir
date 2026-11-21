@@ -24,7 +24,10 @@ from kopir.api.schemas import (
     IntroView,
     JoinRequest,
     JoinResponse,
+    BookingOut,
     LivePerson,
+    SlotOut,
+    SlotRequest,
     LiveResponse,
     ParseRequest,
     SquadOut,
@@ -169,6 +172,41 @@ def create_app(hall: Hall | None = None, web_dir: Path | None = None) -> FastAPI
         except KeyError as e:
             raise HTTPException(status_code=404, detail="запрос не найден") from e
         return _intro_view(hall, intro, body.profile_id, lang)
+
+    @app.get("/api/intros/{intro_id}/slots")
+    def meeting_slots(intro_id: str, profile_id: str, request: Request) -> list[SlotOut]:
+        """Запись на встречу: слоты 18:00–19:45 и какие из них свободны у всех участников."""
+        try:
+            return [SlotOut(slot=s, time=t, free=f) for s, t, f in get_hall(request).introductions.slots(intro_id, profile_id)]
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+
+    @app.post("/api/intros/{intro_id}/slot")
+    def reschedule_meeting(intro_id: str, body: SlotRequest, request: Request, lang: Lang = "ru") -> IntroView:
+        """Перенести встречу на другое свободное у всех время."""
+        hall = get_hall(request)
+        try:
+            intro = hall.introductions.reschedule(intro_id, body.profile_id, body.slot)
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e)) from e
+        return _intro_view(hall, intro, body.profile_id, lang)
+
+    @app.get("/api/bookings")
+    def meeting_bookings(request: Request) -> list[BookingOut]:
+        """Записи на встречи для организатора — обновляются вживую."""
+        hall = get_hall(request)
+        out = []
+        for intro in hall.introductions.bookings():
+            ids = hall.introductions.members(intro)
+            people = [p for p in (hall.get(i) for i in ids) if p is not None]
+            b = intro.beacon
+            out.append(BookingOut(time=b.time, zone=b.zone, code=b.code, color=b.color,
+                                  people=[p.name for p in people], live=all(hall.is_live(p.id) for p in people)))
+        return out
 
     @app.get("/api/intros")
     def list_intros(profile_id: str, request: Request, lang: Lang = "ru") -> list[IntroView]:

@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Building2, Info, LoaderCircle, MapPin, Sparkles, TriangleAlert, Users, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { ApiError, type Lang } from "../api";
+import { api, ApiError, type Booking, type Lang } from "../api";
+import { beaconInk } from "./ink";
 import { format, type Strings } from "../i18n";
 
 // --- данные ---
@@ -324,6 +325,39 @@ function DomainBars({ domains }: { domains: Dashboard["domains"] }) {
   );
 }
 
+/** Записи на встречи из живого зала: опрос раз в 8 секунд. */
+function Bookings({ t }: { t: Strings }) {
+  const [rows, setRows] = useState<Booking[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => api.bookings().then((b) => !cancelled && setRows(b), () => undefined);
+    void tick();
+    const timer = window.setInterval(tick, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+  if (rows === null) return <p className="loading"><LoaderCircle size={18} className="spin" aria-hidden /></p>;
+  if (rows.length === 0) return <p className="bookings__empty">{t.bookingsEmpty}</p>;
+  return (
+    <div className="bookings">
+      <p className="bookings__count">{format(t.bookingsCount, { n: rows.length })}</p>
+      <ol className="bookings__list">
+        {rows.map((b) => (
+          <li key={b.code} className="bookings__item">
+            <span className="bookings__time">{b.time}</span>
+            <span className="bookings__code" style={{ background: b.color, color: beaconInk(b.color) }}>{b.code}</span>
+            <span className="schedule__zone"><MapPin size={13} aria-hidden /> {b.zone}</span>
+            <span className="bookings__who">{b.people.join(" · ")}</span>
+            {b.live && <span className="bookings__live"><span className="live__dot" aria-hidden /> {t.bookingsLive}</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 // --- страница ---
 
 export function OrganizerDashboard({ lang, t }: { lang: Lang; t: Strings }) {
@@ -389,6 +423,9 @@ export function OrganizerDashboard({ lang, t }: { lang: Lang; t: Strings }) {
         <Panel title={t.skillsTitle} hint={t.skillsHint}>
           <PairedBars supplyLabel={t.skillsSupply} demandLabel={t.skillsDemand}
                       rows={data.skills.map((s) => ({ key: s.skill, label: s.skill, supply: s.supply, demand: s.demand }))} />
+        </Panel>
+        <Panel title={t.bookingsTitle} hint={t.bookingsHint} wide>
+          <Bookings t={t} />
         </Panel>
         <Panel title={t.scheduleTitle} hint={t.scheduleHint} wide>
           <Schedule slots={data.slots} scheduled={data.scheduled} t={t} />

@@ -237,3 +237,49 @@ class TestLiveHall:
         accepted = client.post(f"/api/intros/{incoming['id']}/respond", json={"profile_id": b, "accept": True}).json()
         mine = client.get("/api/intros", params={"profile_id": a}).json()[0]
         assert accepted["beacon"] == mine["beacon"] and mine["contact"] is not None
+
+
+class TestBooking:
+    def test_reschedule_only_to_slot_free_for_both(self):
+        intros = Introductions(sim_delay=0)
+        first = intros.request("me", "p1", auto_accept=True)       # 18:00
+        second = intros.request("me", "p2", auto_accept=True)      # 18:15
+        free = {s: f for s, _, f in intros.slots(first.id, "me")}
+        assert free[0] and not free[1] and free[2]                 # своё время свободно, 18:15 занято
+        with pytest.raises(ValueError):
+            intros.reschedule(first.id, "me", 1)
+        moved = intros.reschedule(first.id, "p1", 3)               # перенести может и второй участник
+        assert moved.beacon.time == "18:45" and moved.beacon.code == first.beacon.code
+        assert intros.request("x", "p1", auto_accept=True).beacon.time == "18:00"  # 18:00 у p1 освободилось
+        assert second.beacon.time == "18:15"
+
+    def test_only_participants_after_consent_can_book(self):
+        intros = Introductions(sim_delay=0)
+        pending = intros.request("a", "b", auto_accept=False)
+        with pytest.raises(ValueError):
+            intros.slots(pending.id, "a")
+        intros.respond(pending.id, "b", accept=True)
+        with pytest.raises(KeyError):
+            intros.reschedule(pending.id, "stranger", 2)
+
+    def test_group_moves_together(self):
+        intros = Introductions(sim_delay=0)
+        group = [intros.request("me", f"p{i}", auto_accept=True, group="g") for i in range(3)]
+        intros.reschedule(group[0].id, "me", 5)
+        assert {i.beacon.time for i in group} == {"19:15"}
+        assert len(intros.bookings()) == 1
+
+    def test_bookings_api(self):
+        client = TestClient(create_app(Hall(generate(n=60, seed=7))))
+        client.app.state.hall.introductions.sim_delay = 0
+        join = lambda name: client.post("/api/profiles", json={"profile": make(name=name, goal=Goal.FIND_JOB).model_dump(mode="json")}).json()["profile_id"]
+        a, b = join("Айгерим"), join("Данияр")
+        intro = client.post("/api/intros", json={"from_id": a, "to_id": b}).json()
+        client.post(f"/api/intros/{intro['id']}/respond", json={"profile_id": b, "accept": True})
+        slots = client.get(f"/api/intros/{intro['id']}/slots", params={"profile_id": a}).json()
+        assert len(slots) == 8 and all(s["free"] for s in slots)
+        moved = client.post(f"/api/intros/{intro['id']}/slot", json={"profile_id": a, "slot": 2}).json()
+        assert moved["beacon"]["time"] == "18:30"
+        [booking] = client.get("/api/bookings").json()
+        assert booking["time"] == "18:30" and sorted(booking["people"]) == ["Айгерим", "Данияр"] and booking["live"]
+        assert client.post(f"/api/intros/{intro['id']}/slot", json={"profile_id": "p001", "slot": 3}).status_code == 404

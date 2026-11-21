@@ -12,7 +12,7 @@
 import itertools
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from kopir.matching.engine import Matcher
@@ -32,6 +32,7 @@ class Beacon:
     code: str
     zone: int
     time: str  # слот встречи 1:1 («18:15»): выдаётся автоматически после согласия обоих
+    slot: int = 0  # номер 15-минутного слота от START_MIN
 
 
 @dataclass
@@ -49,7 +50,13 @@ class Intro:
 
 START_MIN = 18 * 60
 SLOT_MIN = 15
+SLOT_COUNT = 8  # запись на встречи: 18:00–19:45
 SIM_DELAY_S = 4.0  # вымышленный участник «думает» несколько секунд — видно, что согласие двустороннее
+
+
+def slot_time(slot: int) -> str:
+    minutes = START_MIN + SLOT_MIN * slot
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
 class Introductions:
@@ -78,9 +85,69 @@ class Introductions:
     def _new_beacon(self, people: set[str]) -> Beacon:
         n = next(self._beacons)
         letter = CODE_LETTERS[n % len(CODE_LETTERS)]
-        minutes = START_MIN + SLOT_MIN * self._slot(people)
+        slot = self._slot(people)
         return Beacon(color=BEACON_COLORS[n % len(BEACON_COLORS)], code=f"{letter}{n // len(CODE_LETTERS) + 1}",
-                      zone=n % ZONES + 1, time=f"{minutes // 60:02d}:{minutes % 60:02d}")
+                      zone=n % ZONES + 1, time=slot_time(slot), slot=slot)
+
+    def _members(self, intro: Intro) -> set[str]:
+        """Кто идёт на встречу: пара или вся группа приглашения."""
+        if intro.group is None:
+            return {intro.from_id, intro.to_id}
+        same = [i for i in self._intros.values() if i.group == intro.group]
+        return {i.from_id for i in same} | {i.to_id for i in same}
+
+    def _meeting(self, intro_id: str, profile_id: str) -> Intro:
+        intro = self._intros.get(intro_id)
+        if intro is None or profile_id not in (intro.from_id, intro.to_id):
+            raise KeyError("встреча не найдена")
+        if intro.status != "accepted" or intro.beacon is None:
+            raise ValueError("время выбирают после взаимного согласия")
+        return intro
+
+    def slots(self, intro_id: str, profile_id: str) -> list[tuple[int, str, bool]]:
+        """Слоты записи: (номер, время, свободен ли у всех участников встречи). Текущий — свободен."""
+        with self._lock:
+            intro = self._meeting(intro_id, profile_id)
+            current = intro.beacon.slot
+            taken = set().union(*(self._busy.get(p, set()) for p in self._members(intro))) - {current}
+            return [(i, slot_time(i), i not in taken) for i in range(SLOT_COUNT)]
+
+    def reschedule(self, intro_id: str, profile_id: str, slot: int) -> Intro:
+        """Перенести встречу на другое время — только на слот, свободный у всех её участников."""
+        with self._lock:
+            intro = self._meeting(intro_id, profile_id)
+            old = intro.beacon.slot
+            if not 0 <= slot < SLOT_COUNT:
+                raise ValueError("такого слота нет")
+            people = self._members(intro)
+            taken = set().union(*(self._busy.get(p, set()) for p in people)) - {old}
+            if slot in taken:
+                raise ValueError("это время уже занято у одного из участников")
+            for p in people:
+                self._busy.setdefault(p, set()).discard(old)
+                self._busy[p].add(slot)
+            moved = replace(intro.beacon, slot=slot, time=slot_time(slot))
+            for other in self._intros.values():  # у группы маячок общий — переносим всем
+                if other.beacon is not None and other.beacon.code == intro.beacon.code and other is not intro:
+                    other.beacon = moved
+            intro.beacon = moved
+            if intro.group is not None:
+                self._groups[intro.group] = moved
+            return intro
+
+    def bookings(self, now: float | None = None) -> list[Intro]:
+        """Все записи на встречи (по одной на маячок), по времени — для организатора."""
+        with self._lock:
+            self._settle(time.time() if now is None else now)
+            seen: dict[str, Intro] = {}
+            for i in self._intros.values():
+                if i.status == "accepted" and i.beacon is not None:
+                    seen.setdefault(i.beacon.code, i)
+            return sorted(seen.values(), key=lambda i: (i.beacon.slot, i.beacon.zone))
+
+    def members(self, intro: Intro) -> list[str]:
+        with self._lock:
+            return sorted(self._members(intro))
 
     def _accept(self, intro: Intro) -> None:
         intro.status = "accepted"

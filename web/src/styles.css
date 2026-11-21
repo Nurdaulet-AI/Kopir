@@ -524,10 +524,35 @@ textarea { resize: vertical; line-height: 1.5; }
 .meetings { margin-top: 16px; padding: 16px 18px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-md); }
 .meetings h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 0.95rem; font-weight: 750; }
 .meetings ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.meetings li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.meetings li { display: grid; gap: 10px; }
+.meetings__row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.meetings__change { margin: 0; }
 .meetings__time { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-strong); min-width: 52px; }
 .meetings__who { flex: 1; min-width: 140px; font-size: 0.9rem; font-weight: 600; }
 .meetings .meet__button { padding: 6px 12px; font-size: 0.82rem; }
+
+/* --- запись на встречу --- */
+.slots { padding: 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); animation: rise 0.25s ease both; }
+.slots__hint { margin: 0 0 10px; font-size: 0.82rem; color: var(--text-2); }
+.slots__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.slot { display: grid; justify-items: center; gap: 1px; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.slot b { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.slot small { font-size: 0.7rem; color: var(--text-3); }
+.slot:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-strong); }
+.slot:disabled { opacity: 0.45; cursor: not-allowed; text-decoration: line-through; }
+.slot.is-current { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+
+/* --- записи на встречи (дашборд) --- */
+.bookings__count { margin: 0 0 10px; font-size: 0.85rem; color: var(--text-2); }
+.bookings__list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.bookings__item { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.bookings__time { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--accent-strong); min-width: 48px; }
+.bookings__code { font-size: 0.8rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+.bookings__who { flex: 1; min-width: 160px; font-size: 0.9rem; font-weight: 600; }
+.bookings__live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-2); }
+.bookings__empty { margin: 0; color: var(--text-2); font-size: 0.9rem; }
+@media (max-width: 520px) { .slots__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* --- живой зал --- */
 .result-tabs { margin-top: 18px; }
